@@ -48,6 +48,13 @@ export const VALID_CLASSES = [
 ];
 export const VALID_WEBINAR_TYPES = ["one-to-one", "one-to-all"];
 export const VALID_STATUS = ["active", "inactive"];
+export const VALID_QUESTION_TYPES = [
+  "single-select",
+  "multi-select",
+  "integer",
+];
+export const VALID_DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"];
+export const VALID_OPTIONS = ["A", "B", "C", "D"];
 
 // ==================== Custom Validators ====================
 
@@ -523,4 +530,604 @@ export const validateRevenue = [
     .optional()
     .isMongoId()
     .withMessage("Invalid course ID format"),
+];
+
+// ==================== Question Validators ====================
+
+// Validate question title
+export const validateQuestionTitle = (isOptional = false) => {
+  const validator = body("title")
+    .isLength({ min: 10, max: 2000 })
+    .withMessage("Question title must be between 10 and 2000 characters");
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Question title is required");
+};
+
+// Validate question type
+export const validateQuestionType = (isOptional = false) => {
+  const validator = body("questionType")
+    .isIn(VALID_QUESTION_TYPES)
+    .withMessage(
+      "Question type must be one of: single-select, multi-select, integer"
+    );
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Question type is required");
+};
+
+// Validate question image
+export const validateQuestionImage = [
+  body("questionImage")
+    .optional()
+    .isURL()
+    .withMessage("Question image must be a valid URL"),
+];
+
+// Validate topics array
+export const validateTopics = (isOptional = false) => {
+  const validator = body("topics")
+    .isArray({ min: 1 })
+    .withMessage("At least one topic is required")
+    .custom((topics) => {
+      if (topics && topics.length > 0) {
+        const invalidTopics = topics.filter(
+          (topic) => typeof topic !== "string" || topic.trim().length === 0
+        );
+        if (invalidTopics.length > 0) {
+          throw new Error("All topics must be non-empty strings");
+        }
+      }
+      return true;
+    });
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator;
+};
+
+// Validate options object
+export const validateOptions = [
+  body("options")
+    .optional()
+    .custom((options, { req }) => {
+      if (req.body.questionType === "integer") {
+        return true; // Options not required for integer type
+      }
+
+      if (!options || typeof options !== "object") {
+        throw new Error("Options must be an object");
+      }
+
+      const requiredOptions = ["A", "B", "C", "D"];
+      const missingOptions = requiredOptions.filter((opt) => !options[opt]);
+
+      if (missingOptions.length > 0) {
+        throw new Error(
+          `Missing required options: ${missingOptions.join(", ")}`
+        );
+      }
+
+      return true;
+    }),
+];
+
+// Validate correct options
+export const validateCorrectOptions = [
+  body("correctOptions")
+    .notEmpty()
+    .withMessage("Correct answer is required")
+    .custom((value, { req }) => {
+      const questionType = req.body.questionType;
+
+      if (questionType === "single-select") {
+        if (typeof value !== "string" || !VALID_OPTIONS.includes(value)) {
+          throw new Error(
+            "For single-select, correctOptions must be one of A, B, C, or D"
+          );
+        }
+      } else if (questionType === "multi-select") {
+        if (
+          !Array.isArray(value) ||
+          value.length === 0 ||
+          !value.every((opt) => VALID_OPTIONS.includes(opt))
+        ) {
+          throw new Error(
+            "For multi-select, correctOptions must be an array of valid options (A, B, C, D)"
+          );
+        }
+      } else if (questionType === "integer") {
+        if (typeof value !== "number" || !Number.isInteger(value)) {
+          throw new Error(
+            "For integer type, correctOptions must be an integer number"
+          );
+        }
+      }
+
+      return true;
+    }),
+];
+
+// Validate difficulty level
+export const validateDifficulty = (isOptional = false) => {
+  const validator = body("difficulty")
+    .isIn(VALID_DIFFICULTY_LEVELS)
+    .withMessage("Difficulty must be one of: Easy, Medium, Hard");
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator;
+};
+
+// Validate marks object
+export const validateMarks = [
+  body("marks.positive")
+    .notEmpty()
+    .withMessage("Positive marks are required")
+    .isFloat({ min: 0 })
+    .withMessage("Positive marks must be a non-negative number"),
+
+  body("marks.negative")
+    .notEmpty()
+    .withMessage("Negative marks are required")
+    .isFloat({ min: 0 })
+    .withMessage("Negative marks must be a non-negative number"),
+];
+
+// Validate marks (optional for update)
+export const validateMarksOptional = [
+  body("marks.positive")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Positive marks must be a non-negative number"),
+
+  body("marks.negative")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Negative marks must be a non-negative number"),
+];
+
+// Validate explanation
+export const validateExplanation = [
+  body("explanation")
+    .optional()
+    .isLength({ max: 5000 })
+    .withMessage("Explanation cannot exceed 5000 characters"),
+];
+
+// Validate tags array
+export const validateTags = [
+  body("tags")
+    .optional()
+    .isArray()
+    .withMessage("Tags must be an array")
+    .custom((tags) => {
+      if (tags && tags.length > 0) {
+        const invalidTags = tags.filter(
+          (tag) => typeof tag !== "string" || tag.trim().length === 0
+        );
+        if (invalidTags.length > 0) {
+          throw new Error("All tags must be non-empty strings");
+        }
+      }
+      return true;
+    }),
+];
+
+// Validate test ID in body
+export const validateTestId = [
+  body("testId")
+    .notEmpty()
+    .withMessage("Test ID is required")
+    .isMongoId()
+    .withMessage("Invalid test ID format"),
+];
+
+// Validate difficulty param
+export const validateDifficultyParam = [
+  param("difficulty")
+    .isIn(VALID_DIFFICULTY_LEVELS)
+    .withMessage("Invalid difficulty level"),
+];
+
+// ==================== Question Validation Arrays ====================
+
+// Validate educator ID in body (for questions)
+export const validateEducatorIdBody = [
+  body("educatorId")
+    .notEmpty()
+    .withMessage("Educator ID is required")
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+];
+
+// Validate educator ID in body (optional)
+export const validateEducatorIdBodyOptional = [
+  body("educatorId")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+];
+
+// Complete validation array for creating question
+export const createQuestionValidation = [
+  body("title")
+    .notEmpty()
+    .withMessage("Question title is required")
+    .isLength({ min: 10, max: 2000 })
+    .withMessage("Question title must be between 10 and 2000 characters"),
+
+  body("questionType")
+    .notEmpty()
+    .withMessage("Question type is required")
+    .isIn(VALID_QUESTION_TYPES)
+    .withMessage(
+      "Question type must be one of: single-select, multi-select, integer"
+    ),
+
+  body("educatorId")
+    .notEmpty()
+    .withMessage("Educator ID is required")
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+
+  body("questionImage")
+    .optional()
+    .isURL()
+    .withMessage("Question image must be a valid URL"),
+
+  body("subject")
+    .isArray({ min: 1 })
+    .withMessage("At least one subject must be selected")
+    .custom((subjects) => {
+      const invalidSubjects = subjects.filter(
+        (sub) => !VALID_SUBJECTS.includes(sub)
+      );
+      if (invalidSubjects.length > 0) {
+        throw new Error(`Invalid subjects: ${invalidSubjects.join(", ")}`);
+      }
+      return true;
+    }),
+
+  body("specialization")
+    .isArray({ min: 1 })
+    .withMessage("At least one specialization must be selected")
+    .custom((specializations) => {
+      const invalidSpecializations = specializations.filter(
+        (spec) => !VALID_SPECIALIZATIONS.includes(spec)
+      );
+      if (invalidSpecializations.length > 0) {
+        throw new Error(
+          `Invalid specializations: ${invalidSpecializations.join(", ")}`
+        );
+      }
+      return true;
+    }),
+
+  body("class")
+    .isArray({ min: 1 })
+    .withMessage("At least one class must be selected")
+    .custom((classes) => {
+      const invalidClasses = classes.filter(
+        (cls) => !VALID_CLASSES.includes(cls)
+      );
+      if (invalidClasses.length > 0) {
+        throw new Error(`Invalid classes: ${invalidClasses.join(", ")}`);
+      }
+      return true;
+    }),
+
+  body("topics")
+    .isArray({ min: 1 })
+    .withMessage("At least one topic is required")
+    .custom((topics) => {
+      if (topics && topics.length > 0) {
+        const invalidTopics = topics.filter(
+          (topic) => typeof topic !== "string" || topic.trim().length === 0
+        );
+        if (invalidTopics.length > 0) {
+          throw new Error("All topics must be non-empty strings");
+        }
+      }
+      return true;
+    }),
+
+  body("options")
+    .optional()
+    .custom((options, { req }) => {
+      if (req.body.questionType === "integer") {
+        return true;
+      }
+
+      if (!options || typeof options !== "object") {
+        throw new Error("Options must be an object");
+      }
+
+      const requiredOptions = ["A", "B", "C", "D"];
+      const missingOptions = requiredOptions.filter((opt) => !options[opt]);
+
+      if (missingOptions.length > 0) {
+        throw new Error(
+          `Missing required options: ${missingOptions.join(", ")}`
+        );
+      }
+
+      return true;
+    }),
+
+  body("correctOptions")
+    .notEmpty()
+    .withMessage("Correct answer is required")
+    .custom((value, { req }) => {
+      const questionType = req.body.questionType;
+
+      if (questionType === "single-select") {
+        if (typeof value !== "string" || !VALID_OPTIONS.includes(value)) {
+          throw new Error(
+            "For single-select, correctOptions must be one of A, B, C, or D"
+          );
+        }
+      } else if (questionType === "multi-select") {
+        if (
+          !Array.isArray(value) ||
+          value.length === 0 ||
+          !value.every((opt) => VALID_OPTIONS.includes(opt))
+        ) {
+          throw new Error(
+            "For multi-select, correctOptions must be an array of valid options (A, B, C, D)"
+          );
+        }
+      } else if (questionType === "integer") {
+        if (typeof value !== "number" || !Number.isInteger(value)) {
+          throw new Error(
+            "For integer type, correctOptions must be an integer number"
+          );
+        }
+      }
+
+      return true;
+    }),
+
+  body("difficulty")
+    .isIn(VALID_DIFFICULTY_LEVELS)
+    .withMessage("Difficulty must be one of: Easy, Medium, Hard"),
+
+  body("marks.positive")
+    .notEmpty()
+    .withMessage("Positive marks are required")
+    .isFloat({ min: 0 })
+    .withMessage("Positive marks must be a non-negative number"),
+
+  body("marks.negative")
+    .notEmpty()
+    .withMessage("Negative marks are required")
+    .isFloat({ min: 0 })
+    .withMessage("Negative marks must be a non-negative number"),
+
+  body("explanation")
+    .optional()
+    .isLength({ max: 5000 })
+    .withMessage("Explanation cannot exceed 5000 characters"),
+
+  body("tags")
+    .optional()
+    .isArray()
+    .withMessage("Tags must be an array")
+    .custom((tags) => {
+      if (tags && tags.length > 0) {
+        const invalidTags = tags.filter(
+          (tag) => typeof tag !== "string" || tag.trim().length === 0
+        );
+        if (invalidTags.length > 0) {
+          throw new Error("All tags must be non-empty strings");
+        }
+      }
+      return true;
+    }),
+];
+
+// Complete validation array for updating question
+export const updateQuestionValidation = [
+  param("id").isMongoId().withMessage("Invalid ID format"),
+
+  body("title")
+    .optional()
+    .isLength({ min: 10, max: 2000 })
+    .withMessage("Question title must be between 10 and 2000 characters"),
+
+  body("questionType")
+    .optional()
+    .isIn(VALID_QUESTION_TYPES)
+    .withMessage(
+      "Question type must be one of: single-select, multi-select, integer"
+    ),
+
+  body("educatorId")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+
+  body("questionImage")
+    .optional()
+    .isURL()
+    .withMessage("Question image must be a valid URL"),
+
+  body("subject")
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage("At least one subject must be selected")
+    .custom((subjects) => {
+      if (subjects && subjects.length > 0) {
+        const invalidSubjects = subjects.filter(
+          (sub) => !VALID_SUBJECTS.includes(sub)
+        );
+        if (invalidSubjects.length > 0) {
+          throw new Error(`Invalid subjects: ${invalidSubjects.join(", ")}`);
+        }
+      }
+      return true;
+    }),
+
+  body("specialization")
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage("At least one specialization must be selected")
+    .custom((specializations) => {
+      if (specializations && specializations.length > 0) {
+        const invalidSpecializations = specializations.filter(
+          (spec) => !VALID_SPECIALIZATIONS.includes(spec)
+        );
+        if (invalidSpecializations.length > 0) {
+          throw new Error(
+            `Invalid specializations: ${invalidSpecializations.join(", ")}`
+          );
+        }
+      }
+      return true;
+    }),
+
+  body("class")
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage("At least one class must be selected")
+    .custom((classes) => {
+      if (classes && classes.length > 0) {
+        const invalidClasses = classes.filter(
+          (cls) => !VALID_CLASSES.includes(cls)
+        );
+        if (invalidClasses.length > 0) {
+          throw new Error(`Invalid classes: ${invalidClasses.join(", ")}`);
+        }
+      }
+      return true;
+    }),
+
+  body("topics")
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage("At least one topic is required")
+    .custom((topics) => {
+      if (topics && topics.length > 0) {
+        const invalidTopics = topics.filter(
+          (topic) => typeof topic !== "string" || topic.trim().length === 0
+        );
+        if (invalidTopics.length > 0) {
+          throw new Error("All topics must be non-empty strings");
+        }
+      }
+      return true;
+    }),
+
+  body("options")
+    .optional()
+    .custom((options, { req }) => {
+      if (req.body.questionType === "integer") {
+        return true;
+      }
+
+      if (!options || typeof options !== "object") {
+        throw new Error("Options must be an object");
+      }
+
+      const requiredOptions = ["A", "B", "C", "D"];
+      const missingOptions = requiredOptions.filter((opt) => !options[opt]);
+
+      if (missingOptions.length > 0) {
+        throw new Error(
+          `Missing required options: ${missingOptions.join(", ")}`
+        );
+      }
+
+      return true;
+    }),
+
+  body("correctOptions")
+    .optional()
+    .custom((value, { req }) => {
+      if (!value) return true; // Skip if not provided
+
+      const questionType = req.body.questionType;
+
+      if (questionType === "single-select") {
+        if (typeof value !== "string" || !VALID_OPTIONS.includes(value)) {
+          throw new Error(
+            "For single-select, correctOptions must be one of A, B, C, or D"
+          );
+        }
+      } else if (questionType === "multi-select") {
+        if (
+          !Array.isArray(value) ||
+          value.length === 0 ||
+          !value.every((opt) => VALID_OPTIONS.includes(opt))
+        ) {
+          throw new Error(
+            "For multi-select, correctOptions must be an array of valid options (A, B, C, D)"
+          );
+        }
+      } else if (questionType === "integer") {
+        if (typeof value !== "number" || !Number.isInteger(value)) {
+          throw new Error(
+            "For integer type, correctOptions must be an integer number"
+          );
+        }
+      }
+
+      return true;
+    }),
+
+  body("difficulty")
+    .optional()
+    .isIn(VALID_DIFFICULTY_LEVELS)
+    .withMessage("Difficulty must be one of: Easy, Medium, Hard"),
+
+  body("marks.positive")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Positive marks must be a non-negative number"),
+
+  body("marks.negative")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Negative marks must be a non-negative number"),
+
+  body("explanation")
+    .optional()
+    .isLength({ max: 5000 })
+    .withMessage("Explanation cannot exceed 5000 characters"),
+
+  body("tags")
+    .optional()
+    .isArray()
+    .withMessage("Tags must be an array")
+    .custom((tags) => {
+      if (tags && tags.length > 0) {
+        const invalidTags = tags.filter(
+          (tag) => typeof tag !== "string" || tag.trim().length === 0
+        );
+        if (invalidTags.length > 0) {
+          throw new Error("All tags must be non-empty strings");
+        }
+      }
+      return true;
+    }),
+];
+
+// Validation for test operations
+export const testOperationValidation = [
+  param("id").isMongoId().withMessage("Invalid ID format"),
+  body("testId")
+    .notEmpty()
+    .withMessage("Test ID is required")
+    .isMongoId()
+    .withMessage("Invalid test ID format"),
 ];
