@@ -67,6 +67,7 @@ const educatorSchema = new mongoose.Schema(
             "Class 10th",
             "Class 11th",
             "Class 12th",
+            "Dropper",
           ],
           message: "{VALUE} is not a valid class",
         },

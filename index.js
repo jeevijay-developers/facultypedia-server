@@ -4,6 +4,8 @@ import cors from "cors";
 import questionRoutes from "./routes/questions.route.js";
 import webinarRoutes from "./routes/webinar.route.js";
 import educatorRoutes from "./routes/educator.route.js";
+import courseRoutes from "./routes/course.route.js";
+import testSeriesRoutes from "./routes/testSeries.route.js";
 import connectDB from "./util/DBConnect.js";
 dotenv.config();
 
@@ -18,6 +20,8 @@ APP.use(express.urlencoded({ extended: true }));
 APP.use("/api/questions", questionRoutes);
 APP.use("/api/webinars", webinarRoutes);
 APP.use("/api/educators", educatorRoutes);
+APP.use("/api/courses", courseRoutes);
+APP.use("/api/test-series", testSeriesRoutes);
 
 const PORT = process.env.PORT || 5000;
 
