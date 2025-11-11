@@ -1618,3 +1618,674 @@ export const testSlugValidation = [
     .matches(/^[a-z0-9-]+$/)
     .withMessage("Invalid slug format. Slug must contain only lowercase letters, numbers, and hyphens")
 ];
+
+// ==================== Course Validators ====================
+
+// Validate course title
+export const validateCourseTitle = (isOptional = false) => {
+  const validator = body("title")
+    .trim()
+    .isLength({ min: 5, max: 200 })
+    .withMessage("Course title must be between 5 and 200 characters");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Course title is required");
+};
+
+// Validate course description
+export const validateCourseDescription = (isOptional = false) => {
+  const validator = body("description")
+    .trim()
+    .isLength({ max: 2000 })
+    .withMessage("Course description cannot exceed 2000 characters");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Course description is required");
+};
+
+// Validate course type
+export const VALID_COURSE_TYPES = ["OTO", "OTA"];
+
+export const validateCourseType = (isOptional = false) => {
+  const validator = body("courseType")
+    .isIn(VALID_COURSE_TYPES)
+    .withMessage(
+      "Course type must be either OTO (One-to-One) or OTA (One-to-All)"
+    );
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Course type is required");
+};
+
+// Validate course fees
+export const validateCourseFees = (isOptional = false) => {
+  const validator = body("fees")
+    .isFloat({ min: 0 })
+    .withMessage("Fees must be a non-negative number");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Fees are required");
+};
+
+// Validate course discount
+export const validateCourseDiscount = [
+  body("discount")
+    .optional()
+    .isFloat({ min: 0, max: 100 })
+    .withMessage("Discount must be between 0 and 100"),
+];
+
+// Validate course duration
+export const validateCourseDuration = (isOptional = false) => {
+  const validator = body("courseDuration")
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage("Course duration must be between 1 and 100 characters");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Course duration is required");
+};
+
+// Validate course dates
+export const validateCourseStartDate = (isOptional = false) => {
+  const validator = body("startDate")
+    .isISO8601()
+    .withMessage("Start date must be a valid date")
+    .custom((value) => {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error("Invalid start date");
+      }
+      return true;
+    });
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Start date is required");
+};
+
+export const validateCourseEndDate = (isOptional = false) => {
+  const validator = body("endDate")
+    .isISO8601()
+    .withMessage("End date must be a valid date")
+    .custom((value) => {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error("Invalid end date");
+      }
+      return true;
+    });
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("End date is required");
+};
+
+export const validateCourseValidDate = (isOptional = false) => {
+  const validator = body("validDate")
+    .isISO8601()
+    .withMessage("Valid date must be a valid date")
+    .custom((value) => {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error("Invalid valid date");
+      }
+      return true;
+    });
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Valid date is required");
+};
+
+// Validate course image
+export const validateCourseImage = [
+  body("image")
+    .optional()
+    .isURL()
+    .withMessage("Course image must be a valid URL"),
+];
+
+// Validate course thumbnail
+export const validateCourseThumbnail = [
+  body("courseThumbnail")
+    .optional()
+    .isURL()
+    .withMessage("Course thumbnail must be a valid URL"),
+];
+
+// Validate intro video
+export const validateIntroVideo = [
+  body("introVideo")
+    .optional()
+    .isURL()
+    .withMessage("Intro video must be a valid URL"),
+];
+
+// Validate videos array
+export const validateVideos = [
+  body("videos")
+    .optional()
+    .isArray()
+    .withMessage("Videos must be an array")
+    .custom((videos) => {
+      if (!Array.isArray(videos)) return true;
+
+      for (const video of videos) {
+        if (!video.title || typeof video.title !== "string") {
+          throw new Error("Each video must have a title");
+        }
+        if (video.title.length > 200) {
+          throw new Error("Video title cannot exceed 200 characters");
+        }
+        if (!video.link || typeof video.link !== "string") {
+          throw new Error("Each video must have a link");
+        }
+        if (!video.sequenceNumber || typeof video.sequenceNumber !== "number") {
+          throw new Error("Each video must have a sequence number");
+        }
+      }
+
+      // Check for duplicate sequence numbers
+      const sequenceNumbers = videos.map((v) => v.sequenceNumber);
+      const uniqueSequences = new Set(sequenceNumbers);
+      if (sequenceNumbers.length !== uniqueSequences.size) {
+        throw new Error("Video sequence numbers must be unique");
+      }
+
+      return true;
+    }),
+];
+
+// Validate study materials array
+export const validateStudyMaterials = [
+  body("studyMaterials")
+    .optional()
+    .isArray()
+    .withMessage("Study materials must be an array")
+    .custom((materials) => {
+      if (!Array.isArray(materials)) return true;
+
+      const validFileTypes = ["PDF", "DOC", "PPT", "EXCEL", "OTHER"];
+
+      for (const material of materials) {
+        if (!material.title || typeof material.title !== "string") {
+          throw new Error("Each study material must have a title");
+        }
+        if (material.title.length > 200) {
+          throw new Error("Study material title cannot exceed 200 characters");
+        }
+        if (!material.link || typeof material.link !== "string") {
+          throw new Error("Each study material must have a link");
+        }
+        if (material.fileType && !validFileTypes.includes(material.fileType)) {
+          throw new Error(
+            `File type must be one of: ${validFileTypes.join(", ")}`
+          );
+        }
+      }
+
+      return true;
+    }),
+];
+
+// Validate course objectives array
+export const validateCourseObjectives = [
+  body("courseObjectives")
+    .optional()
+    .isArray()
+    .withMessage("Course objectives must be an array")
+    .custom((objectives) => {
+      if (!Array.isArray(objectives)) return true;
+
+      for (const objective of objectives) {
+        if (typeof objective !== "string") {
+          throw new Error("Each course objective must be a string");
+        }
+        if (objective.length > 500) {
+          throw new Error("Course objective cannot exceed 500 characters");
+        }
+      }
+
+      return true;
+    }),
+];
+
+// Validate prerequisites array
+export const validatePrerequisites = [
+  body("prerequisites")
+    .optional()
+    .isArray()
+    .withMessage("Prerequisites must be an array")
+    .custom((prerequisites) => {
+      if (!Array.isArray(prerequisites)) return true;
+
+      for (const prerequisite of prerequisites) {
+        if (typeof prerequisite !== "string") {
+          throw new Error("Each prerequisite must be a string");
+        }
+        if (prerequisite.length > 500) {
+          throw new Error("Prerequisite cannot exceed 500 characters");
+        }
+      }
+
+      return true;
+    }),
+];
+
+// Validate course language
+export const validateCourseLanguage = [
+  body("language")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage("Language must be between 2 and 50 characters"),
+];
+
+// Validate certificate availability
+export const validateCertificateAvailable = [
+  body("certificateAvailable")
+    .optional()
+    .isBoolean()
+    .withMessage("Certificate available must be a boolean"),
+];
+
+// Validate max students
+export const validateMaxStudents = [
+  body("maxStudents")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Max students must be at least 1"),
+];
+
+// Validate live class ID
+export const validateLiveClassId = [
+  body("liveClassId")
+    .notEmpty()
+    .withMessage("Live class ID is required")
+    .isMongoId()
+    .withMessage("Invalid live class ID format"),
+];
+
+// Validate test series ID
+export const validateTestSeriesId = [
+  body("testSeriesId")
+    .notEmpty()
+    .withMessage("Test series ID is required")
+    .isMongoId()
+    .withMessage("Invalid test series ID format"),
+];
+
+// Validate video details
+export const validateVideoDetails = [
+  body("title")
+    .notEmpty()
+    .withMessage("Video title is required")
+    .isLength({ max: 200 })
+    .withMessage("Video title cannot exceed 200 characters"),
+
+  body("link")
+    .notEmpty()
+    .withMessage("Video link is required")
+    .isURL()
+    .withMessage("Video link must be a valid URL"),
+
+  body("duration")
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage("Video duration cannot exceed 50 characters"),
+
+  body("sequenceNumber")
+    .notEmpty()
+    .withMessage("Sequence number is required")
+    .isInt({ min: 1 })
+    .withMessage("Sequence number must be at least 1"),
+];
+
+// Validate study material details
+export const validateStudyMaterialDetails = [
+  body("title")
+    .notEmpty()
+    .withMessage("Study material title is required")
+    .isLength({ max: 200 })
+    .withMessage("Study material title cannot exceed 200 characters"),
+
+  body("link")
+    .notEmpty()
+    .withMessage("Study material link is required")
+    .isURL()
+    .withMessage("Study material link must be a valid URL"),
+
+  body("fileType")
+    .optional()
+    .isIn(["PDF", "DOC", "PPT", "EXCEL", "OTHER"])
+    .withMessage("File type must be one of: PDF, DOC, PPT, EXCEL, OTHER"),
+];
+
+// Validate video ID param
+export const validateVideoIdParam = [
+  param("videoId")
+    .notEmpty()
+    .withMessage("Video ID is required")
+    .isMongoId()
+    .withMessage("Invalid video ID format"),
+];
+
+// Validate material ID param
+export const validateMaterialIdParam = [
+  param("materialId")
+    .notEmpty()
+    .withMessage("Material ID is required")
+    .isMongoId()
+    .withMessage("Invalid material ID format"),
+];
+
+// ==================== Course Validation Arrays ====================
+
+// Complete validation array for creating course
+export const createCourseValidation = [
+  validateCourseTitle(false),
+  validateCourseDescription(false),
+  validateCourseType(false),
+  body("educatorID")
+    .notEmpty()
+    .withMessage("Educator ID is required")
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+  validateSpecialization(false),
+  validateSubject(false),
+  validateClass(false),
+  validateCourseFees(false),
+  ...validateCourseDiscount,
+  ...validateCourseImage,
+  ...validateCourseThumbnail,
+  validateCourseStartDate(false),
+  validateCourseEndDate(false),
+  validateCourseDuration(false),
+  validateCourseValidDate(false),
+  ...validateVideos,
+  ...validateIntroVideo,
+  ...validateStudyMaterials,
+  ...validateCourseObjectives,
+  ...validatePrerequisites,
+  ...validateCourseLanguage,
+  ...validateCertificateAvailable,
+  ...validateMaxStudents,
+];
+
+// Complete validation array for updating course
+export const updateCourseValidation = [
+  validateObjectId("id"),
+  validateCourseTitle(true),
+  validateCourseDescription(true),
+  validateCourseType(true),
+  body("educatorID")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+  validateSpecialization(true),
+  validateSubject(true),
+  validateClass(true),
+  validateCourseFees(true),
+  ...validateCourseDiscount,
+  ...validateCourseImage,
+  ...validateCourseThumbnail,
+  validateCourseStartDate(true),
+  validateCourseEndDate(true),
+  validateCourseDuration(true),
+  validateCourseValidDate(true),
+  ...validateVideos,
+  ...validateIntroVideo,
+  ...validateStudyMaterials,
+  ...validateCourseObjectives,
+  ...validatePrerequisites,
+  ...validateCourseLanguage,
+  ...validateCertificateAvailable,
+  ...validateMaxStudents,
+];
+
+// Validation for enrolling student
+export const enrollStudentValidation = [
+  validateObjectId("id"),
+  ...validateStudentId,
+];
+
+// Validation for adding purchase
+export const addPurchaseValidation = [
+  validateObjectId("id"),
+  ...validateStudentId,
+];
+
+// Validation for live class operations
+export const liveClassOperationValidation = [
+  validateObjectId("id"),
+  ...validateLiveClassId,
+];
+
+// Validation for test series operations
+export const testSeriesOperationValidation = [
+  validateObjectId("id"),
+  ...validateTestSeriesId,
+];
+
+// Validation for video operations
+export const addVideoValidation = [
+  validateObjectId("id"),
+  ...validateVideoDetails,
+];
+
+export const removeVideoValidation = [
+  validateObjectId("id"),
+  ...validateVideoIdParam,
+];
+
+// Validation for study material operations
+export const addStudyMaterialValidation = [
+  validateObjectId("id"),
+  ...validateStudyMaterialDetails,
+];
+
+export const removeStudyMaterialValidation = [
+  validateObjectId("id"),
+  ...validateMaterialIdParam,
+];
+
+// Validation for date range query
+export const dateRangeValidation = [
+  query("startDate")
+    .notEmpty()
+    .withMessage("Start date is required")
+    .isISO8601()
+    .withMessage("Start date must be a valid date"),
+
+  query("endDate")
+    .notEmpty()
+    .withMessage("End date is required")
+    .isISO8601()
+    .withMessage("End date must be a valid date")
+    .custom((value, { req }) => {
+      const startDate = new Date(req.query.startDate);
+      const endDate = new Date(value);
+      if (endDate <= startDate) {
+        throw new Error("End date must be after start date");
+      }
+      return true;
+    }),
+];
+
+// ==================== Test Series Validators ====================
+
+// Validate test series title
+export const validateTestSeriesTitle = (isOptional = false) => {
+  const validator = body("title")
+    .trim()
+    .isLength({ min: 5, max: 200 })
+    .withMessage("Test series title must be between 5 and 200 characters");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Test series title is required");
+};
+
+// Validate test series description
+export const validateTestSeriesDescription = (isOptional = false) => {
+  const validator = body("description")
+    .trim()
+    .isLength({ max: 2000 })
+    .withMessage("Test series description cannot exceed 2000 characters");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Test series description is required");
+};
+
+// Validate test series price
+export const validateTestSeriesPrice = (isOptional = false) => {
+  const validator = body("price")
+    .isFloat({ min: 0 })
+    .withMessage("Price must be a non-negative number");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Price is required");
+};
+
+// Validate test series validity
+export const validateTestSeriesValidity = (isOptional = false) => {
+  const validator = body("validity")
+    .isISO8601()
+    .withMessage("Validity must be a valid date")
+    .custom((value) => {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error("Invalid validity date");
+      }
+      // Check if validity is in the future
+      if (date < new Date()) {
+        throw new Error("Validity date must be in the future");
+      }
+      return true;
+    });
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Validity date is required");
+};
+
+// Validate number of tests
+export const validateNumberOfTests = (isOptional = false) => {
+  const validator = body("numberOfTests")
+    .isInt({ min: 1 })
+    .withMessage("Number of tests must be at least 1");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Number of tests is required");
+};
+
+// Validate test series image
+export const validateTestSeriesImage = [
+  body("image")
+    .optional()
+    .isURL()
+    .withMessage("Test series image must be a valid URL"),
+];
+
+// Validate educator ID for test series
+export const validateTestSeriesEducatorId = [
+  body("educatorId")
+    .notEmpty()
+    .withMessage("Educator ID is required")
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+];
+
+// Validate educator ID for test series (optional)
+export const validateTestSeriesEducatorIdOptional = [
+  body("educatorId")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+];
+
+// Validate isCourseSpecific
+export const validateIsCourseSpecific = [
+  body("isCourseSpecific")
+    .optional()
+    .isBoolean()
+    .withMessage("isCourseSpecific must be a boolean"),
+];
+
+// Validate course ID for test series
+export const validateTestSeriesCourseId = [
+  body("courseId")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid course ID format"),
+];
+
+// Validate course ID param
+export const validateCourseIdParam = [
+  param("courseId").isMongoId().withMessage("Invalid course ID format"),
+];
+
+// ==================== Test Series Validation Arrays ====================
+
+// Complete validation array for creating test series
+export const createTestSeriesValidation = [
+  validateTestSeriesTitle(false),
+  validateTestSeriesDescription(false),
+  validateTestSeriesPrice(false),
+  validateTestSeriesValidity(false),
+  validateNumberOfTests(false),
+  ...validateTestSeriesImage,
+  ...validateTestSeriesEducatorId,
+  validateSpecialization(false),
+  validateSubject(false),
+  ...validateIsCourseSpecific,
+  ...validateTestSeriesCourseId,
+];
+
+// Complete validation array for updating test series
+export const updateTestSeriesValidation = [
+  validateObjectId("id"),
+  validateTestSeriesTitle(true),
+  validateTestSeriesDescription(true),
+  validateTestSeriesPrice(true),
+  validateTestSeriesValidity(true),
+  validateNumberOfTests(true),
+  ...validateTestSeriesImage,
+  ...validateTestSeriesEducatorIdOptional,
+  validateSpecialization(true),
+  validateSubject(true),
+  ...validateIsCourseSpecific,
+  ...validateTestSeriesCourseId,
+];
+
+// Validation for enrolling student in test series
+export const enrollStudentInTestSeriesValidation = [
+  validateObjectId("id"),
+  ...validateStudentId,
+];
+
+// Validation for test operations in test series
+export const testSeriesTestOperationValidation = [
+  validateObjectId("id"),
+  body("testId")
+    .notEmpty()
+    .withMessage("Test ID is required")
+    .isMongoId()
+    .withMessage("Invalid test ID format"),
+];
+
+// Validation for rating test series
+export const rateTestSeriesValidation = [
+  validateObjectId("id"),
+  ...validateRating,
+];
