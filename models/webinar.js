@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 const webinarSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -119,7 +118,6 @@ const webinarSchema = new mongoose.Schema({
 });
 
 // Create index for better performance
-// Note: slug index is already created by unique: true in schema
 webinarSchema.index({ timing: 1 });
 webinarSchema.index({ educatorID: 1 });
 webinarSchema.index({ subject: 1 });
