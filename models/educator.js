@@ -162,6 +162,12 @@ const educatorSchema = new mongoose.Schema(
         ref: "TestSeries",
       },
     ],
+    posts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+      },
+    ],
     tests: [
       {
         type: mongoose.Schema.Types.ObjectId,

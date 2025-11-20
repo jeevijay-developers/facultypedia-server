@@ -9,6 +9,7 @@ import courseRoutes from "./routes/course.route.js";
 import testSeriesRoutes from "./routes/testSeries.route.js";
 import authRoutes from "./routes/auth.route.js";
 import studentRoutes from "./routes/student.route.js";
+import postRoutes from "./routes/post.route.js";
 import connectDB from "./util/DBConnect.js";
 dotenv.config();
 
@@ -37,6 +38,7 @@ APP.use("/api/tests", testRoutes);
 APP.use("/api/courses", courseRoutes);
 APP.use("/api/test-series", testSeriesRoutes);
 APP.use("/api/students", studentRoutes);
+APP.use("/api/posts", postRoutes);
 
 const PORT = process.env.PORT || 5000;
 
