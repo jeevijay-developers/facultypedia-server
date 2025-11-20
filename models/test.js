@@ -125,8 +125,7 @@ const testSchema = new mongoose.Schema({
     }
 });
 
-// Create indexes for better performance
-testSchema.index({ slug: 1 });
+// Create indexes for better performance (excluding slug which already has unique: true)
 testSchema.index({ educatorID: 1 });
 testSchema.index({ subjects: 1 });
 testSchema.index({ specialization: 1 });
@@ -194,13 +193,14 @@ testSchema.statics.findStandalone = function() {
 
 // Virtual to get question count
 testSchema.virtual('questionCount').get(function() {
-    return this.questions.length;
+    return this.questions ? this.questions.length : 0;
 });
 
 // Virtual to calculate average marks per question (only if per_question marking)
 testSchema.virtual('averageMarksPerQuestion').get(function() {
-    if (this.markingType === 'per_question' && this.questions.length > 0) {
-        return this.overallMarks / this.questions.length;
+    const questionCount = this.questions ? this.questions.length : 0;
+    if (this.markingType === 'per_question' && questionCount > 0) {
+        return this.overallMarks / questionCount;
     }
     return this.overallMarks;
 });
@@ -213,7 +213,8 @@ testSchema.virtual('estimatedCompletionTime').get(function() {
 
 // Virtual to check if test has enough questions
 testSchema.virtual('hasMinimumQuestions').get(function() {
-    return this.questions.length >= 5; // Minimum 5 questions for a valid test
+    const questionCount = this.questions ? this.questions.length : 0;
+    return questionCount >= 5; // Minimum 5 questions for a valid test
 });
 
 // Virtual to calculate difficulty distribution (would need question data populated)

@@ -113,8 +113,7 @@ const questionSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
-questionSchema.index({ slug: 1 });
+// Indexes (excluding slug which already has unique: true)
 questionSchema.index({ subject: 1 });
 questionSchema.index({ specialization: 1 });
 questionSchema.index({ class: 1 });

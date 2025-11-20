@@ -131,6 +131,8 @@ export const getAllTests = async (req, res) => {
             maxMarks
         } = req.query;
 
+        console.log('getAllTests called with query:', req.query);
+
         // Build filter object
         const filter = { isActive: true };
 
@@ -186,22 +188,37 @@ export const getAllTests = async (req, res) => {
 
         // Get tests with population
         const tests = await Test.find(filter)
-            .populate('educatorID', 'name email')
-            .populate('testSeriesID', 'title description')
-            .populate('questions', 'title difficulty marks')
+            .populate({
+                path: 'educatorID',
+                select: 'name email',
+                strictPopulate: false
+            })
+            .populate({
+                path: 'testSeriesID',
+                select: 'title description',
+                strictPopulate: false
+            })
+            .populate({
+                path: 'questions',
+                select: 'title difficulty marks',
+                strictPopulate: false
+            })
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
 
         // Get total count for pagination
         const totalTests = await Test.countDocuments(filter);
         const totalPages = Math.ceil(totalTests / parseInt(limit));
+        
+        console.log('Found tests:', tests.length, 'Total tests:', totalTests);
 
         res.status(200).json({
             success: true,
             message: 'Tests retrieved successfully',
             data: {
-                tests,
+                tests: tests || [],
                 pagination: {
                     currentPage: parseInt(page),
                     totalPages,
