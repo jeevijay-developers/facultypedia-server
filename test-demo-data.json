@@ -1,0 +1,335 @@
+{
+  "demoTestData": [
+    {
+      "title": "Physics Mock Test - Mechanics",
+      "description": "Comprehensive test covering kinematics, dynamics, work energy and power. This test is designed to evaluate your understanding of fundamental mechanics concepts including Newton's laws, projectile motion, and circular motion.",
+      "image": "https://example.com/images/physics-mechanics-banner.jpg",
+      "subjects": ["Physics"],
+      "class": ["Class 11th", "Class 12th"],
+      "specialization": ["IIT-JEE", "NEET"],
+      "duration": 180,
+      "overallMarks": 300,
+      "markingType": "per_question",
+      "educatorID": "64a7f8d9e1234567890abcde",
+      "isTestSeriesSpecific": true,
+      "testSeriesID": "64a7f8d9e1234567890abcdf",
+      "instructions": "Read all questions carefully. Each question carries 4 marks. There is negative marking of 1 mark for incorrect answers. Calculator is not allowed.",
+      "passingMarks": 180,
+      "negativeMarking": true,
+      "negativeMarkingRatio": 0.25,
+      "shuffleQuestions": true,
+      "showResult": true,
+      "allowReview": true,
+      "questions": [
+        "64a7f8d9e1234567890abc01",
+        "64a7f8d9e1234567890abc02",
+        "64a7f8d9e1234567890abc03"
+      ]
+    },
+    {
+      "title": "Chemistry Organic Compounds Test",
+      "description": "Detailed assessment of organic chemistry including hydrocarbons, functional groups, and reaction mechanisms. Focus on IUPAC nomenclature and important organic reactions.",
+      "image": "https://example.com/images/chemistry-organic-banner.jpg",
+      "subjects": ["Chemistry"],
+      "class": ["Class 12th"],
+      "specialization": ["IIT-JEE", "NEET"],
+      "duration": 120,
+      "overallMarks": 200,
+      "markingType": "overall",
+      "educatorID": "64a7f8d9e1234567890abcde",
+      "isTestSeriesSpecific": false,
+      "instructions": "Answer all questions. Marks will be awarded based on overall performance. Show all working steps clearly.",
+      "passingMarks": 100,
+      "negativeMarking": false,
+      "shuffleQuestions": false,
+      "showResult": true,
+      "allowReview": true,
+      "questions": [
+        "64a7f8d9e1234567890abc04",
+        "64a7f8d9e1234567890abc05"
+      ]
+    },
+    {
+      "title": "Mathematics Calculus Assessment",
+      "description": "Advanced calculus test covering limits, derivatives, integrals, and applications. Includes both theoretical concepts and practical problem-solving questions.",
+      "image": "https://example.com/images/mathematics-calculus-banner.jpg",
+      "subjects": ["Mathematics"],
+      "class": ["Class 12th", "Dropper"],
+      "specialization": ["IIT-JEE"],
+      "duration": 240,
+      "overallMarks": 400,
+      "markingType": "per_question",
+      "educatorID": "64a7f8d9e1234567890abcef",
+      "isTestSeriesSpecific": true,
+      "testSeriesID": "64a7f8d9e1234567890abcgh",
+      "instructions": "This is an advanced level test. Use of calculator is allowed for numerical calculations. Partial marking available for step-wise solutions.",
+      "passingMarks": 240,
+      "negativeMarking": true,
+      "negativeMarkingRatio": 0.33,
+      "shuffleQuestions": true,
+      "showResult": false,
+      "allowReview": false,
+      "questions": [
+        "64a7f8d9e1234567890abc06",
+        "64a7f8d9e1234567890abc07",
+        "64a7f8d9e1234567890abc08",
+        "64a7f8d9e1234567890abc09"
+      ]
+    },
+    {
+      "title": "Biology Cell Structure and Function",
+      "description": "Comprehensive test on cell biology covering cell organelles, membrane transport, cell division, and cellular metabolism. Essential for NEET preparation.",
+      "image": "https://example.com/images/biology-cell-banner.jpg",
+      "subjects": ["Biology"],
+      "class": ["Class 11th", "Class 12th"],
+      "specialization": ["NEET", "CBSE"],
+      "duration": 150,
+      "overallMarks": 250,
+      "markingType": "per_question",
+      "educatorID": "64a7f8d9e1234567890abcij",
+      "isTestSeriesSpecific": false,
+      "instructions": "Answer all questions based on NCERT concepts. Diagrams may be required for some questions. Time management is crucial.",
+      "passingMarks": 125,
+      "negativeMarking": true,
+      "negativeMarkingRatio": 0.25,
+      "shuffleQuestions": false,
+      "showResult": true,
+      "allowReview": true,
+      "questions": [
+        "64a7f8d9e1234567890abc10",
+        "64a7f8d9e1234567890abc11"
+      ]
+    },
+    {
+      "title": "English Grammar and Comprehension",
+      "description": "English language test focusing on grammar, vocabulary, reading comprehension, and writing skills. Designed for Class 10th CBSE students.",
+      "image": "https://example.com/images/english-grammar-banner.jpg",
+      "subjects": ["English"],
+      "class": ["Class 10th"],
+      "specialization": ["CBSE"],
+      "duration": 90,
+      "overallMarks": 100,
+      "markingType": "overall",
+      "educatorID": "64a7f8d9e1234567890abckl",
+      "isTestSeriesSpecific": false,
+      "instructions": "Read passages carefully before answering. Pay attention to grammar rules and sentence construction. Write clearly and legibly.",
+      "passingMarks": 50,
+      "negativeMarking": false,
+      "shuffleQuestions": false,
+      "showResult": true,
+      "allowReview": true,
+      "questions": [
+        "64a7f8d9e1234567890abc12",
+        "64a7f8d9e1234567890abc13"
+      ]
+    },
+    {
+      "title": "Multi-Subject JEE Mock Test",
+      "description": "Full-length JEE Main simulation test covering Physics, Chemistry, and Mathematics. This test replicates the actual JEE exam pattern and difficulty level.",
+      "image": "https://example.com/images/jee-mock-test-banner.jpg",
+      "subjects": ["Physics", "Chemistry", "Mathematics"],
+      "class": ["Class 12th", "Dropper"],
+      "specialization": ["IIT-JEE"],
+      "duration": 180,
+      "overallMarks": 300,
+      "markingType": "per_question",
+      "educatorID": "64a7f8d9e1234567890abcmn",
+      "isTestSeriesSpecific": true,
+      "testSeriesID": "64a7f8d9e1234567890abcop",
+      "instructions": "This is a full-length JEE Main mock test. Each correct answer carries +4 marks, each incorrect answer carries -1 mark. Unattempted questions carry 0 marks. Managing time effectively is crucial for success.",
+      "passingMarks": 150,
+      "negativeMarking": true,
+      "negativeMarkingRatio": 0.25,
+      "shuffleQuestions": true,
+      "showResult": true,
+      "allowReview": true,
+      "questions": [
+        "64a7f8d9e1234567890abc14",
+        "64a7f8d9e1234567890abc15",
+        "64a7f8d9e1234567890abc16",
+        "64a7f8d9e1234567890abc17",
+        "64a7f8d9e1234567890abc18"
+      ]
+    },
+    {
+      "title": "NEET Biology and Chemistry Combined",
+      "description": "NEET focused test combining Biology and Chemistry questions. Covers important topics from both subjects with emphasis on medical entrance exam patterns.",
+      "image": "https://example.com/images/neet-bio-chem-banner.jpg",
+      "subjects": ["Biology", "Chemistry"],
+      "class": ["Class 12th"],
+      "specialization": ["NEET"],
+      "duration": 200,
+      "overallMarks": 360,
+      "markingType": "per_question",
+      "educatorID": "64a7f8d9e1234567890abcqr",
+      "isTestSeriesSpecific": true,
+      "testSeriesID": "64a7f8d9e1234567890abcst",
+      "instructions": "NEET pattern test with Biology and Chemistry questions. Each question carries 4 marks with -1 for wrong answers. Focus on accuracy over speed.",
+      "passingMarks": 216,
+      "negativeMarking": true,
+      "negativeMarkingRatio": 0.25,
+      "shuffleQuestions": true,
+      "showResult": true,
+      "allowReview": true,
+      "questions": [
+        "64a7f8d9e1234567890abc19",
+        "64a7f8d9e1234567890abc20",
+        "64a7f8d9e1234567890abc21"
+      ]
+    },
+    {
+      "title": "Class 9th Science Foundation Test",
+      "description": "Foundation level test for Class 9th students covering basic concepts in Physics, Chemistry, and Biology. Helps in building strong fundamentals.",
+      "image": "https://example.com/images/class9-science-banner.jpg",
+      "subjects": ["Physics", "Chemistry", "Biology"],
+      "class": ["Class 9th"],
+      "specialization": ["CBSE"],
+      "duration": 120,
+      "overallMarks": 150,
+      "markingType": "overall",
+      "educatorID": "64a7f8d9e1234567890abcuv",
+      "isTestSeriesSpecific": false,
+      "instructions": "Foundation level test for Class 9th. Focus on understanding concepts rather than memorization. No negative marking to encourage learning.",
+      "passingMarks": 75,
+      "negativeMarking": false,
+      "shuffleQuestions": false,
+      "showResult": true,
+      "allowReview": true,
+      "questions": [
+        "64a7f8d9e1234567890abc22",
+        "64a7f8d9e1234567890abc23"
+      ]
+    }
+  ],
+  "testingInstructions": {
+    "apiBaseUrl": "http://localhost:3000/api/tests",
+    "testingSteps": [
+      {
+        "step": 1,
+        "action": "Create a new test",
+        "method": "POST",
+        "endpoint": "/api/tests",
+        "description": "Use any test data from the demoTestData array above"
+      },
+      {
+        "step": 2,
+        "action": "Get all tests with pagination",
+        "method": "GET", 
+        "endpoint": "/api/tests?page=1&limit=5",
+        "description": "Retrieve tests with pagination"
+      },
+      {
+        "step": 3,
+        "action": "Filter tests by subject",
+        "method": "GET",
+        "endpoint": "/api/tests?subjects=Physics&specialization=IIT-JEE",
+        "description": "Get Physics tests for IIT-JEE"
+      },
+      {
+        "step": 4,
+        "action": "Get test by ID",
+        "method": "GET",
+        "endpoint": "/api/tests/{testId}",
+        "description": "Replace {testId} with actual test ID from create response"
+      },
+      {
+        "step": 5,
+        "action": "Update test",
+        "method": "PUT",
+        "endpoint": "/api/tests/{testId}",
+        "description": "Update test with partial data like { \"duration\": 200 }"
+      },
+      {
+        "step": 6,
+        "action": "Add question to test",
+        "method": "POST",
+        "endpoint": "/api/tests/{testId}/questions",
+        "body": { "questionId": "64a7f8d9e1234567890abc25" },
+        "description": "Add a question to the test"
+      },
+      {
+        "step": 7,
+        "action": "Get test statistics",
+        "method": "GET",
+        "endpoint": "/api/tests/{testId}/statistics",
+        "description": "Get test analytics and statistics"
+      },
+      {
+        "step": 8,
+        "action": "Get tests by educator",
+        "method": "GET",
+        "endpoint": "/api/tests/educator/{educatorId}",
+        "description": "Get all tests created by specific educator"
+      }
+    ]
+  },
+  "sampleRequests": {
+    "createTest": {
+      "method": "POST",
+      "url": "/api/tests",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "title": "Sample Physics Test",
+        "description": "This is a sample physics test for demonstration purposes.",
+        "subjects": ["Physics"],
+        "class": ["Class 12th"],
+        "specialization": ["IIT-JEE"],
+        "duration": 120,
+        "overallMarks": 200,
+        "markingType": "per_question",
+        "educatorID": "64a7f8d9e1234567890abcde",
+        "isTestSeriesSpecific": false,
+        "negativeMarking": true,
+        "negativeMarkingRatio": 0.25
+      }
+    },
+    "updateTest": {
+      "method": "PUT",
+      "url": "/api/tests/{testId}",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "title": "Updated Physics Test Title",
+        "duration": 150,
+        "passingMarks": 120
+      }
+    },
+    "addQuestion": {
+      "method": "POST",
+      "url": "/api/tests/{testId}/questions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "questionId": "64a7f8d9e1234567890abc01"
+      }
+    }
+  },
+  "validationExamples": {
+    "requiredFields": {
+      "title": "Must be 3-200 characters",
+      "description": "Must be 10-1000 characters", 
+      "subjects": "Must include at least one valid subject",
+      "class": "Must include at least one valid class",
+      "specialization": "Must include at least one valid specialization",
+      "duration": "Must be positive integer (minutes)",
+      "overallMarks": "Must be non-negative number",
+      "markingType": "Must be 'overall' or 'per_question'",
+      "educatorID": "Must be valid MongoDB ObjectId"
+    },
+    "enumValues": {
+      "subjects": ["Physics", "Chemistry", "Biology", "Mathematics", "English"],
+      "class": ["Class 6th", "Class 7th", "Class 8th", "Class 9th", "Class 10th", "Class 11th", "Class 12th", "Dropper"],
+      "specialization": ["IIT-JEE", "NEET", "CBSE"],
+      "markingType": ["overall", "per_question"]
+    },
+    "businessRules": {
+      "testSeriesID": "Required when isTestSeriesSpecific is true",
+      "passingMarks": "Cannot exceed overallMarks",
+      "negativeMarkingRatio": "Must be between 0 and 1 when negativeMarking is true"
+    }
+  }
+}

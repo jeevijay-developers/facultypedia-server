@@ -170,3 +170,4 @@ webinarSchema.set("toJSON", { virtuals: true });
 webinarSchema.set("toObject", { virtuals: true });
 
 export default mongoose.model("Webinar", webinarSchema);
+
