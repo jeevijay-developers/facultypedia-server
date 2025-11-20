@@ -63,7 +63,8 @@ APP.get("/debug/test-count", async (req, res) => {
   }
 });
 
-//^ Server startingAPP.listen(PORT, () => {
+// Server starting
+APP.listen(PORT, () => {
   console.log(`Server started on http://localhost:${PORT}`);
   connectDB();
 });
