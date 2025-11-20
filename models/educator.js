@@ -102,7 +102,6 @@ const educatorSchema = new mongoose.Schema(
     },
     payPerHourFee: {
       type: Number,
-      required: [true, "Pay per hour fee is required"],
       min: [0, "Fee cannot be negative"],
       default: 0,
     },
@@ -141,6 +140,8 @@ const educatorSchema = new mongoose.Schema(
           message: "{VALUE} is not a valid subject",
         },
         required: [true, "At least one subject is required"],
+        lowercase: true,
+        trim: true,
       },
     ],
     courses: [
@@ -175,7 +176,6 @@ const educatorSchema = new mongoose.Schema(
     ],
     yoe: {
       type: Number,
-      required: [true, "Years of experience is required"],
       min: [0, "Years of experience cannot be negative"],
       max: [50, "Years of experience cannot exceed 50"],
       default: 0,
@@ -215,6 +215,26 @@ const educatorSchema = new mongoose.Schema(
         of: Number,
         default: {},
       },
+    },
+    refreshTokens: {
+      type: [
+        {
+          token: {
+            type: String,
+            required: true,
+          },
+          expiresAt: {
+            type: Date,
+            required: true,
+          },
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+      select: false,
     },
   },
   {

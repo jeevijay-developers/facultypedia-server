@@ -354,6 +354,28 @@ export const validateStudentId = [
     .withMessage("Invalid student ID format"),
 ];
 
+// ==================== Auth Validators ====================
+
+export const educatorSignupValidation = [
+  validateFullName(),
+  validateUsernameField(),
+  validateEmail(),
+  validatePassword(),
+  validateMobileNumber(),
+  validateSpecialization(),
+  validateClass(),
+  validateSubject(),
+];
+
+export const educatorLoginValidation = [
+  validateEmail(),
+  body("password").notEmpty().withMessage("Password is required"),
+];
+
+export const validateRefreshTokenBody = [
+  body("refreshToken").notEmpty().withMessage("Refresh token is required"),
+];
+
 // ==================== Webinar Validators ====================
 
 // Validate webinar title
@@ -1142,17 +1164,14 @@ export const testOperationValidation = [
 // Test subject validation (specific to individual Test schema)
 export const VALID_TEST_SUBJECTS = [
   "Physics",
-  "Chemistry", 
+  "Chemistry",
   "Biology",
   "Mathematics",
-  "English"
+  "English",
 ];
 
 // Test marking type validation
-export const VALID_MARKING_TYPES = [
-  "overall",
-  "per_question"
-];
+export const VALID_MARKING_TYPES = ["overall", "per_question"];
 
 // Validate Test title
 export const validateTestTitle = (isOptional = false) => {
@@ -1198,7 +1217,9 @@ export const validateTestSubjects = (isOptional = false) => {
           );
           if (invalidSubjects.length > 0) {
             throw new Error(
-              `Invalid subjects: ${invalidSubjects.join(", ")}. Valid subjects are: ${VALID_TEST_SUBJECTS.join(", ")}`
+              `Invalid subjects: ${invalidSubjects.join(
+                ", "
+              )}. Valid subjects are: ${VALID_TEST_SUBJECTS.join(", ")}`
             );
           }
         }
@@ -1215,7 +1236,9 @@ export const validateTestSubjects = (isOptional = false) => {
       );
       if (invalidSubjects.length > 0) {
         throw new Error(
-          `Invalid subjects: ${invalidSubjects.join(", ")}. Valid subjects are: ${VALID_TEST_SUBJECTS.join(", ")}`
+          `Invalid subjects: ${invalidSubjects.join(
+            ", "
+          )}. Valid subjects are: ${VALID_TEST_SUBJECTS.join(", ")}`
         );
       }
       return true;
@@ -1238,7 +1261,9 @@ export const validateTestClasses = (isOptional = false) => {
           );
           if (invalidClasses.length > 0) {
             throw new Error(
-              `Invalid classes: ${invalidClasses.join(", ")}. Valid classes are: ${VALID_CLASSES.join(", ")}`
+              `Invalid classes: ${invalidClasses.join(
+                ", "
+              )}. Valid classes are: ${VALID_CLASSES.join(", ")}`
             );
           }
         }
@@ -1255,7 +1280,9 @@ export const validateTestClasses = (isOptional = false) => {
       );
       if (invalidClasses.length > 0) {
         throw new Error(
-          `Invalid classes: ${invalidClasses.join(", ")}. Valid classes are: ${VALID_CLASSES.join(", ")}`
+          `Invalid classes: ${invalidClasses.join(
+            ", "
+          )}. Valid classes are: ${VALID_CLASSES.join(", ")}`
         );
       }
       return true;
@@ -1278,7 +1305,11 @@ export const validateTestSpecializations = (isOptional = false) => {
           );
           if (invalidSpecializations.length > 0) {
             throw new Error(
-              `Invalid specializations: ${invalidSpecializations.join(", ")}. Valid specializations are: ${VALID_SPECIALIZATIONS.join(", ")}`
+              `Invalid specializations: ${invalidSpecializations.join(
+                ", "
+              )}. Valid specializations are: ${VALID_SPECIALIZATIONS.join(
+                ", "
+              )}`
             );
           }
         }
@@ -1295,7 +1326,9 @@ export const validateTestSpecializations = (isOptional = false) => {
       );
       if (invalidSpecializations.length > 0) {
         throw new Error(
-          `Invalid specializations: ${invalidSpecializations.join(", ")}. Valid specializations are: ${VALID_SPECIALIZATIONS.join(", ")}`
+          `Invalid specializations: ${invalidSpecializations.join(
+            ", "
+          )}. Valid specializations are: ${VALID_SPECIALIZATIONS.join(", ")}`
         );
       }
       return true;
@@ -1362,14 +1395,16 @@ export const validateTestSeriesSpecific = [
     .optional()
     .isBoolean()
     .withMessage("isTestSeriesSpecific must be a boolean"),
-  
+
   body("testSeriesID")
     .optional()
     .isMongoId()
     .withMessage("Invalid test series ID format")
     .custom((testSeriesID, { req }) => {
       if (req.body.isTestSeriesSpecific && !testSeriesID) {
-        throw new Error("Test Series ID is required when test is test series specific");
+        throw new Error(
+          "Test Series ID is required when test is test series specific"
+        );
       }
       return true;
     }),
@@ -1380,7 +1415,7 @@ export const validateTestImage = [
   body("image")
     .optional()
     .isURL()
-    .withMessage("Test image must be a valid URL")
+    .withMessage("Test image must be a valid URL"),
 ];
 
 // Validate Test instructions
@@ -1388,7 +1423,7 @@ export const validateTestInstructions = [
   body("instructions")
     .optional()
     .isLength({ max: 2000 })
-    .withMessage("Instructions cannot exceed 2000 characters")
+    .withMessage("Instructions cannot exceed 2000 characters"),
 ];
 
 // Validate passing marks
@@ -1400,11 +1435,15 @@ export const validatePassingMarks = [
     .isFloat({ min: 0 })
     .withMessage("Passing marks must be greater than or equal to 0")
     .custom((passingMarks, { req }) => {
-      if (passingMarks && req.body.overallMarks && passingMarks > req.body.overallMarks) {
+      if (
+        passingMarks &&
+        req.body.overallMarks &&
+        passingMarks > req.body.overallMarks
+      ) {
         throw new Error("Passing marks cannot be greater than overall marks");
       }
       return true;
-    })
+    }),
 ];
 
 // Validate negative marking settings
@@ -1413,11 +1452,11 @@ export const validateNegativeMarkingSettings = [
     .optional()
     .isBoolean()
     .withMessage("Negative marking must be a boolean"),
-  
+
   body("negativeMarkingRatio")
     .optional()
     .isFloat({ min: 0, max: 1 })
-    .withMessage("Negative marking ratio must be between 0 and 1")
+    .withMessage("Negative marking ratio must be between 0 and 1"),
 ];
 
 // Validate Test settings
@@ -1426,16 +1465,16 @@ export const validateTestSettings = [
     .optional()
     .isBoolean()
     .withMessage("Shuffle questions must be a boolean"),
-  
+
   body("showResult")
     .optional()
     .isBoolean()
     .withMessage("Show result must be a boolean"),
-  
+
   body("allowReview")
     .optional()
     .isBoolean()
-    .withMessage("Allow review must be a boolean")
+    .withMessage("Allow review must be a boolean"),
 ];
 
 // Complete validation for creating Test
@@ -1454,15 +1493,13 @@ export const createTestValidation = [
   ...validateTestInstructions,
   ...validatePassingMarks,
   ...validateNegativeMarkingSettings,
-  ...validateTestSettings
+  ...validateTestSettings,
 ];
 
 // Complete validation for updating Test
 export const updateTestValidation = [
-  param("id")
-    .isMongoId()
-    .withMessage("Invalid test ID format"),
-  
+  param("id").isMongoId().withMessage("Invalid test ID format"),
+
   validateTestTitle(true),
   validateTestDescription(true),
   validateTestSubjects(true),
@@ -1476,19 +1513,17 @@ export const updateTestValidation = [
   ...validateTestInstructions,
   ...validatePassingMarks,
   ...validateNegativeMarkingSettings,
-  ...validateTestSettings
+  ...validateTestSettings,
 ];
 
 // Validation for Test question management operations
 export const testQuestionManagementValidation = [
-  param("id")
-    .isMongoId()
-    .withMessage("Invalid test ID format"),
+  param("id").isMongoId().withMessage("Invalid test ID format"),
   body("questionId")
     .notEmpty()
     .withMessage("Question ID is required")
     .isMongoId()
-    .withMessage("Invalid question ID format")
+    .withMessage("Invalid question ID format"),
 ];
 
 // Validation for Test query parameters
@@ -1497,34 +1532,40 @@ export const testQueryValidation = [
     .optional()
     .isInt({ min: 1 })
     .withMessage("Page must be a positive integer"),
-  
+
   query("limit")
     .optional()
     .isInt({ min: 1, max: 100 })
     .withMessage("Limit must be between 1 and 100"),
-  
+
   query("minDuration")
     .optional()
     .isInt({ min: 1 })
     .withMessage("Minimum duration must be at least 1 minute"),
-  
+
   query("maxDuration")
     .optional()
     .isInt({ min: 1 })
     .withMessage("Maximum duration must be at least 1 minute")
     .custom((maxDuration, { req }) => {
       const minDuration = req.query.minDuration;
-      if (minDuration && maxDuration && parseInt(maxDuration) < parseInt(minDuration)) {
-        throw new Error("Maximum duration must be greater than minimum duration");
+      if (
+        minDuration &&
+        maxDuration &&
+        parseInt(maxDuration) < parseInt(minDuration)
+      ) {
+        throw new Error(
+          "Maximum duration must be greater than minimum duration"
+        );
       }
       return true;
     }),
-  
+
   query("minMarks")
     .optional()
     .isFloat({ min: 0 })
     .withMessage("Minimum marks must be greater than or equal to 0"),
-  
+
   query("maxMarks")
     .optional()
     .isFloat({ min: 0 })
@@ -1536,78 +1577,94 @@ export const testQueryValidation = [
       }
       return true;
     }),
-  
+
   query("subjects")
     .optional()
     .custom((value) => {
       const subjects = Array.isArray(value) ? value : [value];
-      const invalidSubjects = subjects.filter(subject => !VALID_TEST_SUBJECTS.includes(subject));
+      const invalidSubjects = subjects.filter(
+        (subject) => !VALID_TEST_SUBJECTS.includes(subject)
+      );
       if (invalidSubjects.length > 0) {
-        throw new Error(`Invalid subjects in query: ${invalidSubjects.join(', ')}. Valid subjects are: ${VALID_TEST_SUBJECTS.join(', ')}`);
+        throw new Error(
+          `Invalid subjects in query: ${invalidSubjects.join(
+            ", "
+          )}. Valid subjects are: ${VALID_TEST_SUBJECTS.join(", ")}`
+        );
       }
       return true;
     }),
-  
+
   query("class")
     .optional()
     .custom((value) => {
       const classes = Array.isArray(value) ? value : [value];
-      const invalidClasses = classes.filter(cls => !VALID_CLASSES.includes(cls));
+      const invalidClasses = classes.filter(
+        (cls) => !VALID_CLASSES.includes(cls)
+      );
       if (invalidClasses.length > 0) {
-        throw new Error(`Invalid classes in query: ${invalidClasses.join(', ')}. Valid classes are: ${VALID_CLASSES.join(', ')}`);
+        throw new Error(
+          `Invalid classes in query: ${invalidClasses.join(
+            ", "
+          )}. Valid classes are: ${VALID_CLASSES.join(", ")}`
+        );
       }
       return true;
     }),
-  
+
   query("specialization")
     .optional()
     .custom((value) => {
       const specializations = Array.isArray(value) ? value : [value];
-      const invalidSpecializations = specializations.filter(spec => !VALID_SPECIALIZATIONS.includes(spec));
+      const invalidSpecializations = specializations.filter(
+        (spec) => !VALID_SPECIALIZATIONS.includes(spec)
+      );
       if (invalidSpecializations.length > 0) {
-        throw new Error(`Invalid specializations in query: ${invalidSpecializations.join(', ')}. Valid specializations are: ${VALID_SPECIALIZATIONS.join(', ')}`);
+        throw new Error(
+          `Invalid specializations in query: ${invalidSpecializations.join(
+            ", "
+          )}. Valid specializations are: ${VALID_SPECIALIZATIONS.join(", ")}`
+        );
       }
       return true;
     }),
-  
+
   query("markingType")
     .optional()
     .isIn(VALID_MARKING_TYPES)
     .withMessage("Invalid marking type. Must be 'overall' or 'per_question'"),
-  
+
   query("educatorID")
     .optional()
     .isMongoId()
     .withMessage("Invalid educator ID format in query"),
-  
+
   query("testSeriesID")
     .optional()
     .isMongoId()
     .withMessage("Invalid test series ID format in query"),
-  
+
   query("isTestSeriesSpecific")
     .optional()
-    .isIn(['true', 'false'])
+    .isIn(["true", "false"])
     .withMessage('isTestSeriesSpecific must be "true" or "false"'),
-  
+
   query("search")
     .optional()
     .isLength({ min: 1, max: 100 })
-    .withMessage("Search query must be between 1 and 100 characters")
+    .withMessage("Search query must be between 1 and 100 characters"),
 ];
 
 // Validation for Test educator parameter
 export const testEducatorValidation = [
-  param("educatorId")
-    .isMongoId()
-    .withMessage("Invalid educator ID format")
+  param("educatorId").isMongoId().withMessage("Invalid educator ID format"),
 ];
 
 // Validation for Test series parameter
 export const testSeriesValidation = [
   param("testSeriesId")
     .isMongoId()
-    .withMessage("Invalid test series ID format")
+    .withMessage("Invalid test series ID format"),
 ];
 
 // Validation for Test slug parameter
@@ -1616,7 +1673,9 @@ export const testSlugValidation = [
     .notEmpty()
     .withMessage("Slug is required")
     .matches(/^[a-z0-9-]+$/)
-    .withMessage("Invalid slug format. Slug must contain only lowercase letters, numbers, and hyphens")
+    .withMessage(
+      "Invalid slug format. Slug must contain only lowercase letters, numbers, and hyphens"
+    ),
 ];
 
 // ==================== Course Validators ====================

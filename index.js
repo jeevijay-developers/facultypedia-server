@@ -7,6 +7,7 @@ import educatorRoutes from "./routes/educator.route.js";
 import testRoutes from "./routes/test.route.js";
 import courseRoutes from "./routes/course.route.js";
 import testSeriesRoutes from "./routes/testSeries.route.js";
+import authRoutes from "./routes/auth.route.js";
 import connectDB from "./util/DBConnect.js";
 dotenv.config();
 
@@ -27,6 +28,7 @@ APP.use(express.json());
 APP.use(express.urlencoded({ extended: true }));
 
 // Use routes
+APP.use("/api/auth", authRoutes);
 APP.use("/api/questions", questionRoutes);
 APP.use("/api/webinars", webinarRoutes);
 APP.use("/api/educators", educatorRoutes);
