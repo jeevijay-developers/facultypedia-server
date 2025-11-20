@@ -41,12 +41,12 @@ const testSeriesSchema = new mongoose.Schema({
     {
       type: String,
       enum: [
-        "Biology",
-        "Physics",
-        "Mathematics",
-        "Chemistry",
-        "English",
-        "Hindi",
+        "biology",
+        "physics",
+        "mathematics",
+        "chemistry",
+        "english",
+        "hindi",
       ],
       required: true,
     },

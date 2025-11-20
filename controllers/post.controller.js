@@ -192,6 +192,123 @@ export const getPostsByEducator = async (req, res) => {
   }
 };
 
+export const getPostsBySubject = async (req, res) => {
+  try {
+    const { subject } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    const [posts, totalPosts] = await Promise.all([
+      Post.find({ subject })
+        .populate("educatorId", "fullName username slug profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit, 10)),
+      Post.countDocuments({ subject }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Posts retrieved successfully",
+      data: {
+        posts,
+        pagination: {
+          currentPage: parseInt(page, 10),
+          totalPages: Math.ceil(totalPosts / parseInt(limit, 10)),
+          totalPosts,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching posts by subject:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const getPostsBySpecialization = async (req, res) => {
+  try {
+    const { specialization } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    const [posts, totalPosts] = await Promise.all([
+      Post.find({ specialization })
+        .populate("educatorId", "fullName username slug profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit, 10)),
+      Post.countDocuments({ specialization }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Posts retrieved successfully",
+      data: {
+        posts,
+        pagination: {
+          currentPage: parseInt(page, 10),
+          totalPages: Math.ceil(totalPosts / parseInt(limit, 10)),
+          totalPosts,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching posts by specialization:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const searchPosts = async (req, res) => {
+  try {
+    const { q } = req.query;
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const filter = {
+      $text: { $search: q },
+    };
+
+    const [posts, totalPosts] = await Promise.all([
+      Post.find(filter)
+        .populate("educatorId", "fullName username slug profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit, 10)),
+      Post.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Posts retrieved successfully",
+      data: {
+        posts,
+        pagination: {
+          currentPage: parseInt(page, 10),
+          totalPages: Math.ceil(totalPosts / parseInt(limit, 10)),
+          totalPosts,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error searching posts:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 export const updatePost = async (req, res) => {
   try {
     if (handleValidation(req, res)) {

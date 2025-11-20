@@ -26,7 +26,14 @@ const webinarSchema = new mongoose.Schema({
   subject: [
     {
       type: String,
-      enum: ["Physics", "Biology", "Mathematics", "Chemistry", "Hindi"],
+      enum: [
+        "biology",
+        "physics",
+        "mathematics",
+        "chemistry",
+        "english",
+        "hindi",
+      ],
       required: true,
     },
   ],
@@ -57,14 +64,14 @@ const webinarSchema = new mongoose.Schema({
     {
       type: String,
       enum: [
-        "Class 6th",
-        "Class 7th",
-        "Class 8th",
-        "Class 9th",
-        "Class 10th",
-        "Class 11th",
-        "Class 12th",
-        "Dropper",
+        "class-6th",
+        "class-7th",
+        "class-8th",
+        "class-9th",
+        "class-10th",
+        "class-11th",
+        "class-12th",
+        "dropper",
       ],
       required: true,
     },
@@ -170,4 +177,3 @@ webinarSchema.set("toJSON", { virtuals: true });
 webinarSchema.set("toObject", { virtuals: true });
 
 export default mongoose.model("Webinar", webinarSchema);
-

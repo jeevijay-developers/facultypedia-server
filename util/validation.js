@@ -34,22 +34,22 @@ export const validateId = [
 
 export const VALID_SPECIALIZATIONS = ["IIT-JEE", "NEET", "CBSE"];
 export const VALID_SUBJECTS = [
-  "Biology",
-  "Physics",
-  "Mathematics",
-  "Chemistry",
-  "English",
-  "Hindi",
+  "biology",
+  "physics",
+  "mathematics",
+  "chemistry",
+  "english",
+  "hindi",
 ];
 export const VALID_CLASSES = [
-  "Class 6th",
-  "Class 7th",
-  "Class 8th",
-  "Class 9th",
-  "Class 10th",
-  "Class 11th",
-  "Class 12th",
-  "Dropper",
+  "class-6th",
+  "class-7th",
+  "class-8th",
+  "class-9th",
+  "class-10th",
+  "class-11th",
+  "class-12th",
+  "dropper",
 ];
 export const VALID_WEBINAR_TYPES = ["one-to-one", "one-to-all"];
 export const VALID_STATUS = ["active", "inactive"];
@@ -60,6 +60,7 @@ export const VALID_QUESTION_TYPES = [
 ];
 export const VALID_DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"];
 export const VALID_OPTIONS = ["A", "B", "C", "D"];
+export const VALID_PAYMENT_PRODUCTS = ["course", "testSeries", "webinar"];
 
 // ==================== Custom Validators ====================
 
@@ -760,15 +761,6 @@ export const validateTestId = [
     .withMessage("Invalid test ID format"),
 ];
 
-// Validate difficulty param
-export const validateDifficultyParam = [
-  param("difficulty")
-    .isIn(VALID_DIFFICULTY_LEVELS)
-    .withMessage("Invalid difficulty level"),
-];
-
-// ==================== Question Validation Arrays ====================
-
 // Validate educator ID in body (for questions)
 export const validateEducatorIdBody = [
   body("educatorId")
@@ -831,6 +823,32 @@ export const updatePostValidation = [
   validatePostSpecialization(true),
   validatePostTitle(true),
   validatePostDescription(true),
+];
+
+export const validatePaymentProductType = [
+  body("productType")
+    .notEmpty()
+    .withMessage("Product type is required")
+    .isIn(VALID_PAYMENT_PRODUCTS)
+    .withMessage("Unsupported product type"),
+];
+
+export const validateProductIdBody = [
+  body("productId")
+    .notEmpty()
+    .withMessage("Product ID is required")
+    .isMongoId()
+    .withMessage("Invalid product ID format"),
+];
+
+export const createPaymentOrderValidation = [
+  ...validateStudentId,
+  ...validateProductIdBody,
+  ...validatePaymentProductType,
+];
+
+export const validatePaymentIntentIdParam = [
+  param("id").isMongoId().withMessage("Invalid payment intent ID"),
 ];
 
 // Complete validation array for creating question
@@ -2744,4 +2762,10 @@ export const testSeriesTestOperationValidation = [
 export const rateTestSeriesValidation = [
   validateObjectId("id"),
   ...validateRating,
+];
+
+export const getPostsBySubjectValidation = [validateSubjectParam];
+export const getPostsBySpecializationValidation = [validateSpecializationParam];
+export const searchPostsValidation = [
+  query("q").trim().notEmpty().withMessage("Search query is required"),
 ];

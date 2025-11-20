@@ -5,10 +5,16 @@ import {
   getAllPosts,
   getPostById,
   getPostsByEducator,
+  getPostsBySpecialization,
+  getPostsBySubject,
+  searchPosts,
   updatePost,
 } from "../controllers/post.controller.js";
 import {
   createPostValidation,
+  getPostsBySpecializationValidation,
+  getPostsBySubjectValidation,
+  searchPostsValidation,
   updatePostValidation,
   validateEducatorIdParam,
   validateObjectId,
@@ -30,5 +36,13 @@ router.put(
   updatePost
 );
 router.delete("/:id", validateObjectId(), deletePost);
+
+router.get("/subject/:subject", getPostsBySubjectValidation, getPostsBySubject);
+router.get(
+  "/specialization/:specialization",
+  getPostsBySpecializationValidation,
+  getPostsBySpecialization
+);
+router.get("/search", searchPostsValidation, searchPosts);
 
 export default router;

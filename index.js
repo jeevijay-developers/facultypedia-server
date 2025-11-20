@@ -10,6 +10,7 @@ import testSeriesRoutes from "./routes/testSeries.route.js";
 import authRoutes from "./routes/auth.route.js";
 import studentRoutes from "./routes/student.route.js";
 import postRoutes from "./routes/post.route.js";
+import paymentRoutes from "./routes/payment.route.js";
 import connectDB from "./util/DBConnect.js";
 dotenv.config();
 
@@ -26,7 +27,15 @@ APP.use(
     credentials: true,
   })
 );
-APP.use(express.json());
+APP.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      if (req.originalUrl.startsWith("/api/payments/webhook")) {
+        req.rawBody = buf.toString();
+      }
+    },
+  })
+);
 APP.use(express.urlencoded({ extended: true }));
 
 // Use routes
@@ -39,6 +48,7 @@ APP.use("/api/courses", courseRoutes);
 APP.use("/api/test-series", testSeriesRoutes);
 APP.use("/api/students", studentRoutes);
 APP.use("/api/posts", postRoutes);
+APP.use("/api/payments", paymentRoutes);
 
 const PORT = process.env.PORT || 5000;
 

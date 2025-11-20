@@ -27,7 +27,7 @@ import {
   validateEducatorIdParam,
   validateSubjectParam,
   validateSpecializationParam,
-  validateDifficultyParam,
+  validateDifficulty,
   validateClassParam,
   createQuestionValidation,
   updateQuestionValidation,
@@ -72,7 +72,7 @@ router.get(
 // GET /api/questions/difficulty/:difficulty - Get questions by difficulty
 router.get(
   "/difficulty/:difficulty",
-  validateDifficultyParam,
+  validateDifficulty,
   getQuestionsByDifficulty
 );
 

@@ -13,14 +13,15 @@ const postSchema = new Schema(
     subject: {
       type: String,
       enum: [
-        "Biology",
-        "Physics",
-        "Mathematics",
-        "Chemistry",
-        "English",
-        "Hindi",
+        "biology",
+        "physics",
+        "mathematics",
+        "chemistry",
+        "english",
+        "hindi",
       ],
       required: true,
+      lowercase: true,
       trim: true,
     },
     specialization: {
