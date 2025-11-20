@@ -14,7 +14,16 @@ dotenv.config();
 const APP = express();
 
 // Middleware
-APP.use(cors());
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_DASHBOARD_URL,
+  process.env.NEXT_PUBLIC_WEB_URL,
+].filter(Boolean);
+APP.use(
+  cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+    credentials: true,
+  })
+);
 APP.use(express.json());
 APP.use(express.urlencoded({ extended: true }));
 
