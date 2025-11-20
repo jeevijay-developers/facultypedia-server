@@ -1678,6 +1678,343 @@ export const testSlugValidation = [
     ),
 ];
 
+// ==================== Student Validations ====================
+
+// Validate Student name
+export const validateStudentName = (isOptional = false) => {
+  const validator = body("name")
+    .isLength({ min: 2, max: 100 })
+    .withMessage("Name must be between 2 and 100 characters")
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage("Name must contain only letters and spaces")
+    .trim();
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Name is required");
+};
+
+// Validate Student username
+export const validateStudentUsername = (isOptional = false) => {
+  const validator = body("username")
+    .isLength({ min: 3, max: 30 })
+    .withMessage("Username must be between 3 and 30 characters")
+    .matches(/^[a-z0-9_]+$/)
+    .withMessage("Username must contain only lowercase letters, numbers, and underscores")
+    .trim()
+    .toLowerCase();
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Username is required");
+};
+
+// Validate Student password
+export const validateStudentPassword = (isOptional = false) => {
+  const validator = body("password")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters long")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage("Password must contain at least one lowercase letter, one uppercase letter, and one number");
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Password is required");
+};
+
+// Validate Student mobile number
+export const validateStudentMobileNumber = (isOptional = false) => {
+  const validator = body("mobileNumber")
+    .matches(/^[6-9]\d{9}$/)
+    .withMessage("Mobile number must be a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9");
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Mobile number is required");
+};
+
+// Validate Student email
+export const validateStudentEmail = (isOptional = false) => {
+  const validator = body("email")
+    .isEmail()
+    .withMessage("Please provide a valid email address")
+    .normalizeEmail()
+    .trim()
+    .toLowerCase();
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Email is required");
+};
+
+// Validate Student specialization
+export const validateStudentSpecialization = (isOptional = false) => {
+  const validator = body("specialization")
+    .isIn(VALID_SPECIALIZATIONS)
+    .withMessage(`Specialization must be one of: ${VALID_SPECIALIZATIONS.join(", ")}`);
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Specialization is required");
+};
+
+// Validate Student class
+export const validateStudentClass = (isOptional = false) => {
+  const validator = body("class")
+    .isIn(VALID_CLASSES)
+    .withMessage(`Class must be one of: ${VALID_CLASSES.join(", ")}`);
+
+  if (isOptional) {
+    return validator.optional();
+  }
+
+  return validator.notEmpty().withMessage("Class is required");
+};
+
+// Validate Student address
+export const validateStudentAddress = [
+  body("address.street")
+    .optional()
+    .isLength({ max: 200 })
+    .withMessage("Street address cannot exceed 200 characters")
+    .trim(),
+  
+  body("address.city")
+    .optional()
+    .isLength({ max: 100 })
+    .withMessage("City cannot exceed 100 characters")
+    .trim(),
+  
+  body("address.state")
+    .optional()
+    .isLength({ max: 100 })
+    .withMessage("State cannot exceed 100 characters")
+    .trim(),
+  
+  body("address.country")
+    .optional()
+    .isLength({ max: 100 })
+    .withMessage("Country cannot exceed 100 characters")
+    .trim(),
+  
+  body("address.pincode")
+    .optional()
+    .matches(/^\d{6}$/)
+    .withMessage("Pincode must be a valid 6-digit number")
+];
+
+// Validate Student image
+export const validateStudentImage = [
+  body("image")
+    .optional()
+    .isURL()
+    .withMessage("Image must be a valid URL")
+];
+
+// Validate Student device token
+export const validateStudentDeviceToken = [
+  body("deviceToken")
+    .optional()
+    .isString()
+    .withMessage("Device token must be a string")
+    .trim()
+];
+
+// Validate Student preferences
+export const validateStudentPreferences = [
+  body("preferences.notifications.email")
+    .optional()
+    .isBoolean()
+    .withMessage("Email notification preference must be a boolean"),
+  
+  body("preferences.notifications.push")
+    .optional()
+    .isBoolean()
+    .withMessage("Push notification preference must be a boolean"),
+  
+  body("preferences.notifications.sms")
+    .optional()
+    .isBoolean()
+    .withMessage("SMS notification preference must be a boolean"),
+  
+  body("preferences.language")
+    .optional()
+    .isIn(['english', 'hindi'])
+    .withMessage("Language must be either 'english' or 'hindi'"),
+  
+  body("preferences.theme")
+    .optional()
+    .isIn(['light', 'dark'])
+    .withMessage("Theme must be either 'light' or 'dark'")
+];
+
+// Complete validation for creating Student
+export const createStudentValidation = [
+  validateStudentName(),
+  validateStudentUsername(),
+  validateStudentPassword(),
+  validateStudentMobileNumber(),
+  validateStudentEmail(),
+  validateStudentSpecialization(),
+  validateStudentClass(),
+  ...validateStudentAddress,
+  ...validateStudentImage,
+  ...validateStudentDeviceToken,
+  ...validateStudentPreferences
+];
+
+// Complete validation for updating Student
+export const updateStudentValidation = [
+  param("id")
+    .isMongoId()
+    .withMessage("Invalid student ID format"),
+  
+  validateStudentName(true),
+  validateStudentUsername(true),
+  validateStudentMobileNumber(true),
+  validateStudentEmail(true),
+  validateStudentSpecialization(true),
+  validateStudentClass(true),
+  ...validateStudentAddress,
+  ...validateStudentImage,
+  ...validateStudentDeviceToken,
+  ...validateStudentPreferences
+];
+
+// Validation for Student query parameters
+export const studentQueryValidation = [
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Page must be a positive integer"),
+  
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage("Limit must be between 1 and 100"),
+  
+  query("specialization")
+    .optional()
+    .isIn(VALID_SPECIALIZATIONS)
+    .withMessage(`Specialization must be one of: ${VALID_SPECIALIZATIONS.join(", ")}`),
+  
+  query("class")
+    .optional()
+    .isIn(VALID_CLASSES)
+    .withMessage(`Class must be one of: ${VALID_CLASSES.join(", ")}`),
+  
+  query("isActive")
+    .optional()
+    .isIn(['true', 'false'])
+    .withMessage('isActive must be "true" or "false"'),
+  
+  query("search")
+    .optional()
+    .isLength({ min: 1, max: 100 })
+    .withMessage("Search query must be between 1 and 100 characters"),
+  
+  query("sortBy")
+    .optional()
+    .isIn(['name', 'username', 'email', 'joinedAt', 'updatedAt', 'specialization', 'class'])
+    .withMessage('sortBy must be one of: name, username, email, joinedAt, updatedAt, specialization, class'),
+  
+  query("sortOrder")
+    .optional()
+    .isIn(['asc', 'desc'])
+    .withMessage('sortOrder must be either "asc" or "desc"')
+];
+
+// Validation for Student username parameter
+export const studentUsernameValidation = [
+  param("username")
+    .notEmpty()
+    .withMessage("Username is required")
+    .matches(/^[a-z0-9_]+$/)
+    .withMessage("Invalid username format")
+];
+
+// Validation for Student specialization parameter
+export const studentSpecializationValidation = [
+  param("specialization")
+    .isIn(VALID_SPECIALIZATIONS)
+    .withMessage(`Invalid specialization. Must be one of: ${VALID_SPECIALIZATIONS.join(", ")}`)
+];
+
+// Validation for Student class parameter
+export const studentClassValidation = [
+  param("className")
+    .isIn(VALID_CLASSES)
+    .withMessage(`Invalid class. Must be one of: ${VALID_CLASSES.join(", ")}`)
+];
+
+// Validation for Student password update
+export const studentPasswordValidation = [
+  param("id")
+    .isMongoId()
+    .withMessage("Invalid student ID format"),
+  
+  body("currentPassword")
+    .notEmpty()
+    .withMessage("Current password is required"),
+  
+  body("newPassword")
+    .isLength({ min: 6 })
+    .withMessage("New password must be at least 6 characters long")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage("New password must contain at least one lowercase letter, one uppercase letter, and one number")
+];
+
+// Validation for Student course enrollment
+export const studentEnrollmentValidation = [
+  param("id")
+    .isMongoId()
+    .withMessage("Invalid student ID format"),
+  
+  body("courseId")
+    .notEmpty()
+    .withMessage("Course ID is required")
+    .isMongoId()
+    .withMessage("Invalid course ID format")
+];
+
+// Validation for Student educator follow/unfollow
+export const studentFollowValidation = [
+  param("id")
+    .isMongoId()
+    .withMessage("Invalid student ID format"),
+  
+  body("educatorId")
+    .notEmpty()
+    .withMessage("Educator ID is required")
+    .isMongoId()
+    .withMessage("Invalid educator ID format")
+];
+
+// Validation for Student webinar registration
+export const studentWebinarValidation = [
+  param("id")
+    .isMongoId()
+    .withMessage("Invalid student ID format"),
+  
+  body("webinarId")
+    .notEmpty()
+    .withMessage("Webinar ID is required")
+    .isMongoId()
+    .withMessage("Invalid webinar ID format")
+];
+
 // ==================== Course Validators ====================
 
 // Validate course title
