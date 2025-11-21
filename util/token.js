@@ -15,6 +15,9 @@ export const generateRefreshToken = (payload) =>
 export const verifyRefreshToken = (token) =>
   jwt.verify(token, jwtConfig.refreshSecret);
 
+export const verifyAccessToken = (token) =>
+  jwt.verify(token, jwtConfig.accessSecret);
+
 export const decodeToken = (token) => jwt.decode(token);
 
 export const hashToken = (token) =>

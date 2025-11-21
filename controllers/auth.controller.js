@@ -328,3 +328,31 @@ export const logoutEducator = async (req, res) => {
     });
   }
 };
+
+export const getCurrentEducatorProfile = async (req, res) => {
+  try {
+    const educator = req.educator;
+
+    if (!educator) {
+      return res.status(404).json({
+        success: false,
+        message: "Educator not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Educator profile fetched",
+      data: {
+        educator: sanitizeEducator(educator),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching educator profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
