@@ -2626,3 +2626,309 @@ export const rateTestSeriesValidation = [
   validateObjectId("id"),
   ...validateRating,
 ];
+
+// ==================== Live Class Validations ====================
+
+// Educator ID validation for live class
+export const validateLiveClassEducatorId = [
+  body("educatorID")
+    .notEmpty()
+    .withMessage("Educator ID is required")
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+];
+
+// Course ID validation for live class (when isCourseSpecific is true)
+export const validateLiveClassCourseId = [
+  body("assignInCourse")
+    .if(body("isCourseSpecific").equals("true"))
+    .notEmpty()
+    .withMessage("Course ID is required when live class is course-specific")
+    .isMongoId()
+    .withMessage("Invalid course ID format"),
+];
+
+// Live class fee validation
+export const validateLiveClassFee = (optional = false) => {
+  const validator = body("liveClassesFee")
+    .notEmpty()
+    .withMessage("Live class fee is required")
+    .isNumeric()
+    .withMessage("Live class fee must be a number")
+    .custom((value) => {
+      if (parseFloat(value) < 0) {
+        throw new Error("Live class fee cannot be negative");
+      }
+      return true;
+    });
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Subject validation for live class
+export const validateLiveClassSubject = (optional = false) => {
+  const validator = body("subject")
+    .notEmpty()
+    .withMessage("Subject is required")
+    .isIn(["Physics", "Chemistry", "Mathematics", "Biology"])
+    .withMessage("Invalid subject. Must be one of: Physics, Chemistry, Mathematics, Biology");
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Live class specification validation
+export const validateLiveClassSpecification = (optional = false) => {
+  const validator = body("liveClassSpecification")
+    .notEmpty()
+    .withMessage("Live class specification is required")
+    .isIn(VALID_SPECIALIZATIONS)
+    .withMessage(`Invalid specification. Must be one of: ${VALID_SPECIALIZATIONS.join(", ")}`);
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Intro video validation for live class
+export const validateLiveClassIntroVideo = (optional = true) => {
+  const validator = body("introVideo")
+    .if(body("introVideo").notEmpty())
+    .isURL()
+    .withMessage("Intro video must be a valid URL");
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Class timing validation
+export const validateClassTiming = (optional = false) => {
+  const validator = body("classTiming")
+    .notEmpty()
+    .withMessage("Class timing is required")
+    .isISO8601()
+    .withMessage("Invalid date format. Please provide ISO8601 format")
+    .custom((value) => {
+      const classTime = new Date(value);
+      if (classTime <= new Date()) {
+        throw new Error("Class timing must be in the future");
+      }
+      return true;
+    });
+  
+  if (optional) {
+    return validator.optional().custom((value) => {
+      if (value) {
+        const classTime = new Date(value);
+        if (classTime <= new Date()) {
+          throw new Error("Class timing must be in the future");
+        }
+      }
+      return true;
+    });
+  }
+  return validator;
+};
+
+// Class duration validation
+export const validateClassDuration = (optional = false) => {
+  const validator = body("classDuration")
+    .notEmpty()
+    .withMessage("Class duration is required")
+    .isNumeric()
+    .withMessage("Class duration must be a number")
+    .custom((value) => {
+      const duration = parseInt(value);
+      if (duration < 1) {
+        throw new Error("Class duration must be at least 1 minute");
+      }
+      if (duration > 480) {
+        throw new Error("Class duration cannot exceed 480 minutes (8 hours)");
+      }
+      return true;
+    });
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Live class ID validation
+export const validateLiveClassID = (optional = false) => {
+  const validator = body("liveClassID")
+    .notEmpty()
+    .withMessage("Live class ID is required")
+    .isLength({ min: 3, max: 50 })
+    .withMessage("Live class ID must be between 3 and 50 characters")
+    .matches(/^[A-Z0-9-]+$/)
+    .withMessage("Live class ID must contain only uppercase letters, numbers, and hyphens");
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Live class title validation
+export const validateLiveClassTitle = (optional = false) => {
+  const validator = body("liveClassTitle")
+    .notEmpty()
+    .withMessage("Live class title is required")
+    .isLength({ min: 3, max: 200 })
+    .withMessage("Live class title must be between 3 and 200 characters");
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Class array validation
+export const validateClassArray = (optional = false) => {
+  const validator = body("class")
+    .notEmpty()
+    .withMessage("Class is required")
+    .isArray()
+    .withMessage("Class must be an array")
+    .custom((value) => {
+      const validClasses = ["Class 6th", "Class 7th", "Class 8th", "Class 9th", "Class 10th", "Class 11th", "Class 12th", "Dropper"];
+      if (!value.every(c => validClasses.includes(c))) {
+        throw new Error(`Invalid class. Must be one of: ${validClasses.join(", ")}`);
+      }
+      return true;
+    });
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Description validation
+export const validateLiveClassDescription = (optional = true) => {
+  const validator = body("description")
+    .isLength({ max: 1000 })
+    .withMessage("Description cannot exceed 1000 characters");
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Max students validation for live class
+export const validateLiveClassMaxStudents = (optional = true) => {
+  const validator = body("maxStudents")
+    .if(body("maxStudents").notEmpty())
+    .isNumeric()
+    .withMessage("Max students must be a number")
+    .custom((value) => {
+      if (parseInt(value) < 1) {
+        throw new Error("Max students must be at least 1");
+      }
+      return true;
+    });
+  
+  if (optional) {
+    return validator.optional();
+  }
+  return validator;
+};
+
+// Is course specific validation
+export const validateLiveClassIsCourseSpecific = [
+  body("isCourseSpecific")
+    .optional()
+    .isBoolean()
+    .withMessage("isCourseSpecific must be a boolean"),
+];
+
+// Student ID validation for enrollment
+export const validateLiveClassStudentId = [
+  body("studentId")
+    .notEmpty()
+    .withMessage("Student ID is required")
+    .isMongoId()
+    .withMessage("Invalid student ID format"),
+];
+
+// Attendance time validation
+export const validateAttendanceTime = [
+  body("attendanceTime")
+    .optional()
+    .isNumeric()
+    .withMessage("Attendance time must be a number")
+    .custom((value) => {
+      if (parseInt(value) < 0) {
+        throw new Error("Attendance time cannot be negative");
+      }
+      return true;
+    }),
+];
+
+// Recording URL validation
+export const validateRecordingURL = [
+  body("recordingURL")
+    .optional()
+    .isURL()
+    .withMessage("Recording URL must be a valid URL"),
+];
+
+// Complete validation array for creating live class
+export const createLiveClassValidation = [
+  validateLiveClassID(false),
+  validateLiveClassEducatorId,
+  validateLiveClassCourseId,
+  validateLiveClassFee(false),
+  validateLiveClassSubject(false),
+  validateLiveClassSpecification(false),
+  validateLiveClassIntroVideo(true),
+  validateClassTiming(false),
+  validateClassDuration(false),
+  validateLiveClassTitle(false),
+  validateClassArray(false),
+  validateLiveClassDescription(true),
+  validateLiveClassMaxStudents(true),
+  validateLiveClassIsCourseSpecific,
+].flat();
+
+// Complete validation array for updating live class
+export const updateLiveClassValidation = [
+  validateObjectId("id"),
+  validateLiveClassEducatorId.map(v => v.optional()),
+  validateLiveClassCourseId.map(v => v.optional()),
+  validateLiveClassFee(true),
+  validateLiveClassSubject(true),
+  validateLiveClassSpecification(true),
+  validateLiveClassIntroVideo(true),
+  validateClassTiming(true),
+  validateClassDuration(true),
+  validateLiveClassTitle(true),
+  validateClassArray(true),
+  validateLiveClassDescription(true),
+  validateLiveClassMaxStudents(true),
+  validateLiveClassIsCourseSpecific.map(v => v.optional()),
+].flat();
+
+// Validation for enrolling student in live class
+export const enrollLiveClassValidation = [
+  validateObjectId("liveClassId"),
+  validateLiveClassStudentId,
+];
+
+// Validation for marking attendance
+export const markAttendanceValidation = [
+  validateObjectId("liveClassId"),
+  validateObjectId("studentId"),
+  validateAttendanceTime,
+];
+
