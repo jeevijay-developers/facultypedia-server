@@ -27,8 +27,59 @@ const educatorImageStorage = new CloudinaryStorage({
   },
 });
 
+const courseImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "facultypedia/courses",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    transformation: [{ width: 1280, height: 720, crop: "limit" }],
+  },
+});
+
 export const uploadEducatorImage = multer({
   storage: educatorImageStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+  },
+});
+
+export const uploadCourseImage = multer({
+  storage: courseImageStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+  },
+});
+
+const dynamicStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => {
+    const type = req.query.type || "misc";
+    let folder = "facultypedia/misc";
+    let transformation = [{ width: 1280, height: 720, crop: "limit" }];
+
+    switch (type) {
+      case "educator":
+        folder = "facultypedia/educators";
+        transformation = [{ width: 800, height: 800, crop: "limit" }];
+        break;
+      case "course":
+        folder = "facultypedia/courses";
+        break;
+      case "test":
+        folder = "facultypedia/tests";
+        break;
+    }
+
+    return {
+      folder,
+      allowed_formats: ["jpg", "jpeg", "png", "webp"],
+      transformation,
+    };
+  },
+});
+
+export const uploadGenericImage = multer({
+  storage: dynamicStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5 MB
   },

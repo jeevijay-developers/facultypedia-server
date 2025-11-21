@@ -13,6 +13,7 @@ import postRoutes from "./routes/post.route.js";
 import paymentRoutes from "./routes/payment.route.js";
 import educatorUpdateRoutes from "./routes/educatorUpdate.route.js";
 import liveClassRoutes from "./routes/liveClass.route.js";
+import uploadRoutes from "./routes/upload.route.js";
 import connectDB from "./util/DBConnect.js";
 dotenv.config();
 
@@ -53,6 +54,7 @@ APP.use("/api/live-classes", liveClassRoutes);
 APP.use("/api/posts", postRoutes);
 APP.use("/api/payments", paymentRoutes);
 APP.use("/api/educator-update", educatorUpdateRoutes);
+APP.use("/api/upload", uploadRoutes);
 
 const PORT = process.env.PORT || 5000;
 
