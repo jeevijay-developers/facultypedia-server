@@ -11,6 +11,7 @@ import authRoutes from "./routes/auth.route.js";
 import studentRoutes from "./routes/student.route.js";
 import postRoutes from "./routes/post.route.js";
 import paymentRoutes from "./routes/payment.route.js";
+import educatorUpdateRoutes from "./routes/educatorUpdate.route.js";
 import connectDB from "./util/DBConnect.js";
 dotenv.config();
 
@@ -49,6 +50,7 @@ APP.use("/api/test-series", testSeriesRoutes);
 APP.use("/api/students", studentRoutes);
 APP.use("/api/posts", postRoutes);
 APP.use("/api/payments", paymentRoutes);
+APP.use("/api/educator-update", educatorUpdateRoutes);
 
 const PORT = process.env.PORT || 5000;
 

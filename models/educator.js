@@ -45,6 +45,11 @@ const educatorSchema = new mongoose.Schema(
       trim: true,
       maxlength: [1000, "Description cannot exceed 1000 characters"],
     },
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: [1000, "Bio cannot exceed 1000 characters"],
+    },
     specialization: [
       {
         type: String,
@@ -87,6 +92,18 @@ const educatorSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
+    },
+    image: {
+      publicId: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      url: {
+        type: String,
+        trim: true,
+        default: "",
+      },
     },
     introVideo: {
       type: String,
@@ -214,6 +231,32 @@ const educatorSchema = new mongoose.Schema(
       min: [0, "Years of experience cannot be negative"],
       max: [50, "Years of experience cannot exceed 50"],
       default: 0,
+    },
+    workExperience: [
+      {
+        title: { type: String, trim: true },
+        company: { type: String, trim: true },
+        startDate: { type: Date },
+        endDate: { type: Date },
+        description: { type: String, trim: true },
+      },
+    ],
+    qualification: [
+      {
+        title: { type: String, trim: true },
+        institute: { type: String, trim: true },
+        startDate: { type: Date },
+        endDate: { type: Date },
+        description: { type: String, trim: true },
+      },
+    ],
+    socials: {
+      linkedin: { type: String, trim: true, default: "" },
+      twitter: { type: String, trim: true, default: "" },
+      facebook: { type: String, trim: true, default: "" },
+      instagram: { type: String, trim: true, default: "" },
+      youtube: { type: String, trim: true, default: "" },
+      website: { type: String, trim: true, default: "" },
     },
     bankDetails: {
       accountHolderName: {

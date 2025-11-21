@@ -115,9 +115,10 @@ export const validateSubject = (isOptional = false) => {
       .withMessage("At least one subject must be selected")
       .custom((subjects) => {
         if (subjects && subjects.length > 0) {
-          const invalidSubjects = subjects.filter(
-            (sub) => !VALID_SUBJECTS.includes(sub)
-          );
+          const invalidSubjects = subjects.filter((sub) => {
+            if (!sub) return true;
+            return !VALID_SUBJECTS.includes(sub.toLowerCase());
+          });
           if (invalidSubjects.length > 0) {
             throw new Error(`Invalid subjects: ${invalidSubjects.join(", ")}`);
           }
@@ -130,9 +131,10 @@ export const validateSubject = (isOptional = false) => {
     .isArray({ min: 1 })
     .withMessage("At least one subject must be selected")
     .custom((subjects) => {
-      const invalidSubjects = subjects.filter(
-        (sub) => !VALID_SUBJECTS.includes(sub)
-      );
+      const invalidSubjects = subjects.filter((sub) => {
+        if (!sub) return true;
+        return !VALID_SUBJECTS.includes(sub.toLowerCase());
+      });
       if (invalidSubjects.length > 0) {
         throw new Error(`Invalid subjects: ${invalidSubjects.join(", ")}`);
       }
