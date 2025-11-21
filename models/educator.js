@@ -60,14 +60,14 @@ const educatorSchema = new mongoose.Schema(
         type: String,
         enum: {
           values: [
-            "Class 6th",
-            "Class 7th",
-            "Class 8th",
-            "Class 9th",
-            "Class 10th",
-            "Class 11th",
-            "Class 12th",
-            "Dropper",
+            "class-6th",
+            "class-7th",
+            "class-8th",
+            "class-9th",
+            "class-10th",
+            "class-11th",
+            "class-12th",
+            "dropper",
           ],
           message: "{VALUE} is not a valid class",
         },
@@ -102,16 +102,19 @@ const educatorSchema = new mongoose.Schema(
     },
     payPerHourFee: {
       type: Number,
-      required: [true, "Pay per hour fee is required"],
       min: [0, "Fee cannot be negative"],
       default: 0,
     },
-    followers: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Student",
-      },
-    ],
+    followers: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Student",
+        },
+      ],
+      default: [],
+    },
+    default: [],
     status: {
       type: String,
       enum: {
@@ -137,45 +140,77 @@ const educatorSchema = new mongoose.Schema(
       {
         type: String,
         enum: {
-          values: ["Biology", "Physics", "Mathematics", "Chemistry", "English"],
+          values: [
+            "biology",
+            "physics",
+            "mathematics",
+            "chemistry",
+            "english",
+            "hindi",
+          ],
           message: "{VALUE} is not a valid subject",
         },
         required: [true, "At least one subject is required"],
+        lowercase: true,
+        trim: true,
       },
     ],
-    courses: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Course",
-      },
-    ],
-    webinars: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Webinar",
-      },
-    ],
-    testSeries: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "TestSeries",
-      },
-    ],
-    tests: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Test",
-      },
-    ],
-    questions: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Question",
-      },
-    ],
+    courses: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Course",
+        },
+      ],
+      default: [],
+    },
+    webinars: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Webinar",
+        },
+      ],
+      default: [],
+    },
+    testSeries: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "TestSeries",
+        },
+      ],
+      default: [],
+    },
+    posts: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Post",
+        },
+      ],
+      default: [],
+    },
+    tests: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Test",
+        },
+      ],
+      default: [],
+    },
+    questions: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Question",
+        },
+      ],
+      default: [],
+    },
     yoe: {
       type: Number,
-      required: [true, "Years of experience is required"],
       min: [0, "Years of experience cannot be negative"],
       max: [50, "Years of experience cannot exceed 50"],
       default: 0,
@@ -215,6 +250,26 @@ const educatorSchema = new mongoose.Schema(
         of: Number,
         default: {},
       },
+    },
+    refreshTokens: {
+      type: [
+        {
+          token: {
+            type: String,
+            required: true,
+          },
+          expiresAt: {
+            type: Date,
+            required: true,
+          },
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+      select: false,
     },
   },
   {
@@ -321,32 +376,32 @@ educatorSchema.statics.searchByName = function (searchTerm) {
 
 // Virtual to get follower count
 educatorSchema.virtual("followerCount").get(function () {
-  return this.followers.length;
+  return Array.isArray(this.followers) ? this.followers.length : 0;
 });
 
 // Virtual to get total courses count
 educatorSchema.virtual("courseCount").get(function () {
-  return this.courses.length;
+  return Array.isArray(this.courses) ? this.courses.length : 0;
 });
 
 // Virtual to get total webinars count
 educatorSchema.virtual("webinarCount").get(function () {
-  return this.webinars.length;
+  return Array.isArray(this.webinars) ? this.webinars.length : 0;
 });
 
 // Virtual to get total test series count
 educatorSchema.virtual("testSeriesCount").get(function () {
-  return this.testSeries.length;
+  return Array.isArray(this.testSeries) ? this.testSeries.length : 0;
 });
 
 // Virtual to get total tests count
 educatorSchema.virtual("testCount").get(function () {
-  return this.tests.length;
+  return Array.isArray(this.tests) ? this.tests.length : 0;
 });
 
 // Virtual to get total questions count
 educatorSchema.virtual("questionCount").get(function () {
-  return this.questions.length;
+  return Array.isArray(this.questions) ? this.questions.length : 0;
 });
 
 export default mongoose.model("Educator", educatorSchema);

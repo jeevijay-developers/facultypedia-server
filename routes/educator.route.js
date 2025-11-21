@@ -1,9 +1,7 @@
 import express from "express";
 const router = express.Router();
-import { param } from "express-validator";
 
 import {
-  createEducator,
   getAllEducators,
   getEducatorById,
   getEducatorByUsername,
@@ -31,7 +29,6 @@ import {
   validateFullName,
   validateUsernameField,
   validateEmail,
-  validatePassword,
   validateDescription,
   validateSpecialization,
   validateClass,
@@ -39,8 +36,6 @@ import {
   validateURL,
   validatePayPerHourFee,
   validateSubject,
-  validateYOE,
-  validateBankDetails,
   validateStatus,
   validateStudentId,
   validateRating,
@@ -50,24 +45,6 @@ import {
   validateClassParam,
   validateRatingParam,
 } from "../util/validation.js";
-
-// Validation middleware for creating educator
-const createEducatorValidation = [
-  validateFullName(),
-  validateUsernameField(),
-  validateEmail(),
-  validatePassword(),
-  validateDescription[0],
-  validateSpecialization(),
-  validateClass(),
-  validateMobileNumber(),
-  validateURL("profilePicture"),
-  validateURL("introVideo"),
-  validatePayPerHourFee(),
-  validateSubject(),
-  validateYOE(),
-  ...validateBankDetails,
-];
 
 // Validation middleware for updating educator
 const updateEducatorValidation = [
@@ -83,7 +60,6 @@ const updateEducatorValidation = [
   validateURL("introVideo"),
   validatePayPerHourFee(true),
   validateSubject(true),
-  validateYOE(true),
   validateStatus[0],
 ];
 
@@ -137,9 +113,6 @@ router.get("/:id/followers", validateObjectId(), getEducatorFollowers);
 
 // GET /api/educators/:id/statistics - Get educator statistics
 router.get("/:id/statistics", validateObjectId(), getEducatorStatistics);
-
-// POST /api/educators - Create new educator
-router.post("/", createEducatorValidation, createEducator);
 
 // POST /api/educators/:id/followers - Add follower to educator
 router.post("/:id/followers", followerValidation, addFollower);
