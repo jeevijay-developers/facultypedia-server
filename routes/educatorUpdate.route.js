@@ -15,6 +15,7 @@ import {
   validateSpecialization,
   validateSubject,
   validateClass,
+  validatePayPerHourFee,
 } from "../util/validation.js";
 import { uploadEducatorImage } from "../config/cloudinary.js";
 
@@ -63,6 +64,7 @@ const specializationValidation = [
   validateSpecialization(true),
   validateSubject(true),
   validateClass(true),
+  validatePayPerHourFee(true),
   body("yearsExperience")
     .optional()
     .isInt({ min: 0, max: 50 })

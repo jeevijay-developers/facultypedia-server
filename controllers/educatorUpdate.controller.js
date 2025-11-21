@@ -329,6 +329,7 @@ export const updateEducatorSpecializationAndExperience = async (req, res) => {
       subject = [],
       class: classes = [],
       yearsExperience,
+      payPerHourFee,
     } = req.body;
 
     if (specialization && !Array.isArray(specialization)) {
@@ -353,6 +354,13 @@ export const updateEducatorSpecializationAndExperience = async (req, res) => {
 
     if (typeof yearsExperience !== "undefined") {
       updatePayload.yoe = Number(yearsExperience) || 0;
+    }
+
+    if (typeof payPerHourFee !== "undefined") {
+      const feeValue = Number(payPerHourFee);
+      updatePayload.payPerHourFee = Number.isFinite(feeValue)
+        ? Math.max(0, feeValue)
+        : 0;
     }
 
     const educator = await Educator.findByIdAndUpdate(
