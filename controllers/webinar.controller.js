@@ -307,11 +307,7 @@ export const deleteWebinar = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const webinar = await Webinar.findByIdAndUpdate(
-      id,
-      { isActive: false },
-      { new: true }
-    );
+    const webinar = await Webinar.findByIdAndDelete(id);
 
     if (!webinar) {
       return res.status(404).json({
