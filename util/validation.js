@@ -1230,11 +1230,12 @@ export const testOperationValidation = [
 
 // Test subject validation (specific to individual Test schema)
 export const VALID_TEST_SUBJECTS = [
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "Mathematics",
-  "English",
+  "biology",
+  "physics",
+  "mathematics",
+  "chemistry",
+  "english",
+  "hindi",
 ];
 
 // Test marking type validation
@@ -2800,7 +2801,7 @@ export const validateLiveClassFee = (optional = false) => {
       }
       return true;
     });
-  
+
   if (optional) {
     return validator.optional();
   }
@@ -2813,8 +2814,10 @@ export const validateLiveClassSubject = (optional = false) => {
     .notEmpty()
     .withMessage("Subject is required")
     .isIn(["Physics", "Chemistry", "Mathematics", "Biology"])
-    .withMessage("Invalid subject. Must be one of: Physics, Chemistry, Mathematics, Biology");
-  
+    .withMessage(
+      "Invalid subject. Must be one of: Physics, Chemistry, Mathematics, Biology"
+    );
+
   if (optional) {
     return validator.optional();
   }
@@ -2827,8 +2830,12 @@ export const validateLiveClassSpecification = (optional = false) => {
     .notEmpty()
     .withMessage("Live class specification is required")
     .isIn(VALID_SPECIALIZATIONS)
-    .withMessage(`Invalid specification. Must be one of: ${VALID_SPECIALIZATIONS.join(", ")}`);
-  
+    .withMessage(
+      `Invalid specification. Must be one of: ${VALID_SPECIALIZATIONS.join(
+        ", "
+      )}`
+    );
+
   if (optional) {
     return validator.optional();
   }
@@ -2841,7 +2848,7 @@ export const validateLiveClassIntroVideo = (optional = true) => {
     .if(body("introVideo").notEmpty())
     .isURL()
     .withMessage("Intro video must be a valid URL");
-  
+
   if (optional) {
     return validator.optional();
   }
@@ -2862,7 +2869,7 @@ export const validateClassTiming = (optional = false) => {
       }
       return true;
     });
-  
+
   if (optional) {
     return validator.optional().custom((value) => {
       if (value) {
@@ -2894,7 +2901,7 @@ export const validateClassDuration = (optional = false) => {
       }
       return true;
     });
-  
+
   if (optional) {
     return validator.optional();
   }
@@ -2909,8 +2916,10 @@ export const validateLiveClassID = (optional = false) => {
     .isLength({ min: 3, max: 50 })
     .withMessage("Live class ID must be between 3 and 50 characters")
     .matches(/^[A-Z0-9-]+$/)
-    .withMessage("Live class ID must contain only uppercase letters, numbers, and hyphens");
-  
+    .withMessage(
+      "Live class ID must contain only uppercase letters, numbers, and hyphens"
+    );
+
   if (optional) {
     return validator.optional();
   }
@@ -2924,7 +2933,7 @@ export const validateLiveClassTitle = (optional = false) => {
     .withMessage("Live class title is required")
     .isLength({ min: 3, max: 200 })
     .withMessage("Live class title must be between 3 and 200 characters");
-  
+
   if (optional) {
     return validator.optional();
   }
@@ -2939,13 +2948,24 @@ export const validateClassArray = (optional = false) => {
     .isArray()
     .withMessage("Class must be an array")
     .custom((value) => {
-      const validClasses = ["Class 6th", "Class 7th", "Class 8th", "Class 9th", "Class 10th", "Class 11th", "Class 12th", "Dropper"];
-      if (!value.every(c => validClasses.includes(c))) {
-        throw new Error(`Invalid class. Must be one of: ${validClasses.join(", ")}`);
+      const validClasses = [
+        "Class 6th",
+        "Class 7th",
+        "Class 8th",
+        "Class 9th",
+        "Class 10th",
+        "Class 11th",
+        "Class 12th",
+        "Dropper",
+      ];
+      if (!value.every((c) => validClasses.includes(c))) {
+        throw new Error(
+          `Invalid class. Must be one of: ${validClasses.join(", ")}`
+        );
       }
       return true;
     });
-  
+
   if (optional) {
     return validator.optional();
   }
@@ -2957,7 +2977,7 @@ export const validateLiveClassDescription = (optional = true) => {
   const validator = body("description")
     .isLength({ max: 1000 })
     .withMessage("Description cannot exceed 1000 characters");
-  
+
   if (optional) {
     return validator.optional();
   }
@@ -2976,7 +2996,7 @@ export const validateLiveClassMaxStudents = (optional = true) => {
       }
       return true;
     });
-  
+
   if (optional) {
     return validator.optional();
   }
@@ -3043,8 +3063,8 @@ export const createLiveClassValidation = [
 // Complete validation array for updating live class
 export const updateLiveClassValidation = [
   validateObjectId("id"),
-  validateLiveClassEducatorId.map(v => v.optional()),
-  validateLiveClassCourseId.map(v => v.optional()),
+  validateLiveClassEducatorId.map((v) => v.optional()),
+  validateLiveClassCourseId.map((v) => v.optional()),
   validateLiveClassFee(true),
   validateLiveClassSubject(true),
   validateLiveClassSpecification(true),
@@ -3055,7 +3075,7 @@ export const updateLiveClassValidation = [
   validateClassArray(true),
   validateLiveClassDescription(true),
   validateLiveClassMaxStudents(true),
-  validateLiveClassIsCourseSpecific.map(v => v.optional()),
+  validateLiveClassIsCourseSpecific.map((v) => v.optional()),
 ].flat();
 
 // Validation for enrolling student in live class
@@ -3070,7 +3090,6 @@ export const markAttendanceValidation = [
   validateObjectId("studentId"),
   validateAttendanceTime,
 ];
-
 
 export const getPostsBySubjectValidation = [validateSubjectParam];
 export const getPostsBySpecializationValidation = [validateSpecializationParam];
