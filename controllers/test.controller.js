@@ -7,8 +7,6 @@ export const createTest = async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
-    console.log("Validation Errors:", errors);
-    console.log("Request Body:", JSON.stringify(req.body, null, 2));
 
     if (!errors.isEmpty()) {
       return res.status(400).json({
