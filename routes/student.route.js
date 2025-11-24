@@ -1,33 +1,34 @@
 import { Router } from "express";
 import {
-    createStudent,
-    getAllStudents,
-    getStudentById,
-    getStudentByUsername,
-    updateStudent,
-    deleteStudent,
-    enrollInCourse,
-    followEducator,
-    unfollowEducator,
-    registerForWebinar,
-    getStudentStatistics,
-    getStudentsBySpecialization,
-    getStudentsByClass,
-    updatePassword
+  createStudent,
+  getAllStudents,
+  getStudentById,
+  getStudentByUsername,
+  updateStudent,
+  deleteStudent,
+  enrollInCourse,
+  followEducator,
+  unfollowEducator,
+  registerForWebinar,
+  getStudentStatistics,
+  getStudentsBySpecialization,
+  getStudentsByClass,
+  updatePassword,
+  getEnrolledStudentsByEducator,
 } from "../controllers/student.controller.js";
 
 import {
-    createStudentValidation,
-    updateStudentValidation,
-    studentQueryValidation,
-    studentUsernameValidation,
-    studentSpecializationValidation,
-    studentClassValidation,
-    studentPasswordValidation,
-    studentEnrollmentValidation,
-    studentFollowValidation,
-    studentWebinarValidation,
-    validateId
+  createStudentValidation,
+  updateStudentValidation,
+  studentQueryValidation,
+  studentUsernameValidation,
+  studentSpecializationValidation,
+  studentClassValidation,
+  studentPasswordValidation,
+  studentEnrollmentValidation,
+  studentFollowValidation,
+  studentWebinarValidation,
+  validateId,
 } from "../util/validation.js";
 
 const router = Router();
@@ -85,7 +86,11 @@ router.get("/:id", validateId, getStudentById);
  * @access  Public
  * @param   username - Student username
  */
-router.get("/username/:username", studentUsernameValidation, getStudentByUsername);
+router.get(
+  "/username/:username",
+  studentUsernameValidation,
+  getStudentByUsername
+);
 
 /**
  * @route   PUT /api/students/:id
@@ -152,7 +157,11 @@ router.delete("/:id/unfollow", studentFollowValidation, unfollowEducator);
  *   webinarId: ObjectId (required) - ID of the webinar to register for
  * }
  */
-router.post("/:id/register-webinar", studentWebinarValidation, registerForWebinar);
+router.post(
+  "/:id/register-webinar",
+  studentWebinarValidation,
+  registerForWebinar
+);
 
 // ======================= Student Statistics and Analytics Routes =======================
 
@@ -163,6 +172,18 @@ router.post("/:id/register-webinar", studentWebinarValidation, registerForWebina
  * @param   id - Student ObjectId
  */
 router.get("/:id/statistics", validateId, getStudentStatistics);
+
+/**
+ * @route   GET /api/students/educator/:educatorId/enrolled
+ * @desc    Get all students enrolled in educator's courses
+ * @access  Private (Educator)
+ * @param   educatorId - Educator ObjectId
+ */
+router.get(
+  "/educator/:educatorId/enrolled",
+  validateId,
+  getEnrolledStudentsByEducator
+);
 
 // ======================= Specialization and Class Specific Routes =======================
 
@@ -176,7 +197,11 @@ router.get("/:id/statistics", validateId, getStudentStatistics);
  *   limit?: number (optional, default: 10)
  * }
  */
-router.get("/specialization/:specialization", [studentSpecializationValidation, studentQueryValidation], getStudentsBySpecialization);
+router.get(
+  "/specialization/:specialization",
+  [studentSpecializationValidation, studentQueryValidation],
+  getStudentsBySpecialization
+);
 
 /**
  * @route   GET /api/students/class/:className
@@ -188,7 +213,11 @@ router.get("/specialization/:specialization", [studentSpecializationValidation, 
  *   limit?: number (optional, default: 10)
  * }
  */
-router.get("/class/:className", [studentClassValidation, studentQueryValidation], getStudentsByClass);
+router.get(
+  "/class/:className",
+  [studentClassValidation, studentQueryValidation],
+  getStudentsByClass
+);
 
 // ======================= Password Management Routes =======================
 
