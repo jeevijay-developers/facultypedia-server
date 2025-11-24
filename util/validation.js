@@ -2741,8 +2741,6 @@ export const updateTestSeriesValidation = [
   ...validateTestSeriesEducatorIdOptional,
   validateSpecialization(true),
   validateSubject(true),
-  ...validateIsCourseSpecific,
-  ...validateTestSeriesCourseId,
 ];
 
 // Validation for enrolling student in test series
@@ -2759,6 +2757,22 @@ export const testSeriesTestOperationValidation = [
     .withMessage("Test ID is required")
     .isMongoId()
     .withMessage("Invalid test ID format"),
+];
+
+// Validation for bulk test operations in test series
+export const bulkTestSeriesTestOperationValidation = [
+  validateObjectId("id"),
+  body("testIds")
+    .notEmpty()
+    .withMessage("Test IDs array is required")
+    .isArray({ min: 1 })
+    .withMessage("Test IDs must be a non-empty array")
+    .custom((testIds) => {
+      if (!testIds.every((id) => /^[a-f\d]{24}$/i.test(id))) {
+        throw new Error("All test IDs must be valid MongoDB ObjectIds");
+      }
+      return true;
+    }),
 ];
 
 // Validation for rating test series
