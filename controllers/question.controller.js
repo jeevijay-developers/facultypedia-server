@@ -1,4 +1,5 @@
 import Question from "../models/question.js";
+import Educator from "../models/educator.js";
 import { validationResult } from "express-validator";
 import { parse } from "csv-parse/sync";
 
@@ -50,6 +51,14 @@ export const createQuestion = async (req, res) => {
     });
 
     const savedQuestion = await newQuestion.save();
+
+    if (educatorId) {
+      await Educator.findByIdAndUpdate(
+        educatorId,
+        { $addToSet: { questions: savedQuestion._id } },
+        { new: true }
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -902,6 +911,12 @@ export const bulkUploadQuestions = async (req, res) => {
         };
 
         const createdQuestion = await Question.create(questionObj);
+
+        if (educatorId) {
+          await Educator.findByIdAndUpdate(educatorId, {
+            $addToSet: { questions: createdQuestion._id },
+          });
+        }
         created.push({ row: rowNum, id: createdQuestion._id });
       } catch (err) {
         failed.push({ row: rowNum, error: err.message });
@@ -920,12 +935,10 @@ export const bulkUploadQuestions = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in bulk upload:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };

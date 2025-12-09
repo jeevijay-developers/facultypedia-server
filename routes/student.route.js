@@ -18,17 +18,17 @@ import {
 } from "../controllers/student.controller.js";
 
 import {
-    createStudentValidation,
-    updateStudentValidation,
-    studentQueryValidation,
-    studentUsernameValidation,
-    studentSpecializationValidation,
-    studentClassValidation,
-    studentPasswordValidation,
-    studentEnrollmentValidation,
-    studentFollowValidation,
-    studentWebinarValidation,
-    validateId
+  createStudentValidation,
+  updateStudentValidation,
+  studentQueryValidation,
+  studentUsernameValidation,
+  studentSpecializationValidation,
+  studentClassValidation,
+  studentPasswordValidation,
+  studentEnrollmentValidation,
+  studentFollowValidation,
+  studentWebinarValidation,
+  validateId,
 } from "../util/validation.js";
 
 const router = Router();
@@ -86,7 +86,11 @@ router.get("/:id", validateId, getStudentById);
  * @access  Public
  * @param   username - Student username
  */
-router.get("/username/:username", studentUsernameValidation, getStudentByUsername);
+router.get(
+  "/username/:username",
+  studentUsernameValidation,
+  getStudentByUsername
+);
 
 /**
  * @route   PUT /api/students/:id
@@ -153,7 +157,11 @@ router.delete("/:id/unfollow", studentFollowValidation, unfollowEducator);
  *   webinarId: ObjectId (required) - ID of the webinar to register for
  * }
  */
-router.post("/:id/register-webinar", studentWebinarValidation, registerForWebinar);
+router.post(
+  "/:id/register-webinar",
+  studentWebinarValidation,
+  registerForWebinar
+);
 
 // ======================= Student Statistics and Analytics Routes =======================
 
@@ -188,7 +196,11 @@ router.get("/:id/notifications", validateId, getStudentNotifications);
  *   limit?: number (optional, default: 10)
  * }
  */
-router.get("/specialization/:specialization", [studentSpecializationValidation, studentQueryValidation], getStudentsBySpecialization);
+router.get(
+  "/specialization/:specialization",
+  [studentSpecializationValidation, studentQueryValidation],
+  getStudentsBySpecialization
+);
 
 /**
  * @route   GET /api/students/class/:className
@@ -200,7 +212,11 @@ router.get("/specialization/:specialization", [studentSpecializationValidation, 
  *   limit?: number (optional, default: 10)
  * }
  */
-router.get("/class/:className", [studentClassValidation, studentQueryValidation], getStudentsByClass);
+router.get(
+  "/class/:className",
+  [studentClassValidation, studentQueryValidation],
+  getStudentsByClass
+);
 
 // ======================= Password Management Routes =======================
 

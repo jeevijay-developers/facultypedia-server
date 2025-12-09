@@ -5,6 +5,7 @@ import {
   getTestSeriesById,
   getTestSeriesBySlug,
   updateTestSeries,
+  updateTestSeriesImage,
   deleteTestSeries,
   getTestSeriesByEducator,
   getTestSeriesBySpecialization,
@@ -16,16 +17,22 @@ import {
   removeStudent,
   addTest,
   removeTest,
+  bulkAddTests,
+  bulkRemoveTests,
   updateTestSeriesRating,
   getTestSeriesStatistics,
   getOverallStatistics,
+  assignTestSeriesToCourse,
 } from "../controllers/testSeries.controller.js";
+
+import { uploadGenericImage } from "../config/cloudinary.js";
 
 import {
   createTestSeriesValidation,
   updateTestSeriesValidation,
   enrollStudentInTestSeriesValidation,
   testSeriesTestOperationValidation,
+  bulkTestSeriesTestOperationValidation,
   rateTestSeriesValidation,
   validateObjectId,
   validateSlug,
@@ -55,8 +62,23 @@ router.get("/slug/:slug", validateSlug, getTestSeriesBySlug);
 // Update test series by ID
 router.put("/:id", updateTestSeriesValidation, updateTestSeries);
 
+// Update test series banner image
+router.put(
+  "/:id/image",
+  validateObjectId("id"),
+  uploadGenericImage.single("image"),
+  updateTestSeriesImage
+);
+
 // Delete test series by ID (soft delete)
 router.delete("/:id", validateObjectId("id"), deleteTestSeries);
+
+// Assign test series to course
+router.put(
+  "/:id/assign-course",
+  validateObjectId("id"),
+  assignTestSeriesToCourse
+);
 
 // ==================== Filter Routes ====================
 
@@ -105,6 +127,20 @@ router.post("/:id/tests", testSeriesTestOperationValidation, addTest);
 
 // Remove test from test series
 router.delete("/:id/tests", testSeriesTestOperationValidation, removeTest);
+
+// Bulk add tests to test series
+router.post(
+  "/:id/tests/bulk",
+  bulkTestSeriesTestOperationValidation,
+  bulkAddTests
+);
+
+// Bulk remove tests from test series
+router.delete(
+  "/:id/tests/bulk",
+  bulkTestSeriesTestOperationValidation,
+  bulkRemoveTests
+);
 
 // ==================== Rating Routes ====================
 

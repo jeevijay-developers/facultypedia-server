@@ -1,20 +1,21 @@
-import { validationResult } from 'express-validator';
-import LiveClass from '../models/liveClass.js';
+import { validationResult } from "express-validator";
+import LiveClass from "../models/liveClass.js";
+import notificationService from "../services/notification.service.js";
 
 // Create a new live class
 export const createLiveClass = async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation failed',
-                errors: errors.array().map(err => ({
-                    field: err.param,
-                    message: err.msg
-                }))
-            });
-        }
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array().map((err) => ({
+          field: err.param,
+          message: err.msg,
+        })),
+      });
+    }
 
         const {
             educatorID,
@@ -49,39 +50,52 @@ export const createLiveClass = async (req, res) => {
             maxStudents
         });
 
-        // Generate slug
-        newLiveClass.slug = newLiveClass.generateSlug();
+    // Generate slug
+    newLiveClass.slug = newLiveClass.generateSlug();
 
-        await newLiveClass.save();
+    await newLiveClass.save();
 
-        return res.status(201).json({
-            success: true,
-            message: 'Live class created successfully',
-            data: newLiveClass
-        });
-    } catch (error) {
-        console.error('Error creating live class:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error creating live class',
-            error: error.message
-        });
+    // Send notification to all followers
+    try {
+      await notificationService.notifyFollowers(educatorID, "live_class", {
+        _id: newLiveClass._id,
+        title: newLiveClass.liveClassTitle,
+        slug: newLiveClass.slug,
+        classTiming: newLiveClass.classTiming,
+      });
+    } catch (notificationError) {
+      console.error("Error sending notifications:", notificationError);
+      // Don't fail the request if notification fails
     }
+
+    return res.status(201).json({
+      success: true,
+      message: "Live class created successfully",
+      data: newLiveClass,
+    });
+  } catch (error) {
+    console.error("Error creating live class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error creating live class",
+      error: error.message,
+    });
+  }
 };
 
 // Get all live classes with pagination and filtering
 export const getAllLiveClasses = async (req, res) => {
-    try {
-        const {
-            page = 1,
-            limit = 10,
-            subject,
-            specification,
-            class: classFilter,
-            educatorID,
-            isCourseSpecific,
-            isActive
-        } = req.query;
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      subject,
+      specification,
+      class: classFilter,
+      educatorID,
+      isCourseSpecific,
+      isActive,
+    } = req.query;
 
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
@@ -110,361 +124,397 @@ export const getAllLiveClasses = async (req, res) => {
         if (isCourseSpecific !== undefined) filter.isCourseSpecific = isCourseSpecific === 'true';
         if (isActive !== undefined) filter.isActive = isActive === 'true';
 
-        const totalLiveClasses = await LiveClass.countDocuments(filter);
-        const liveClasses = await LiveClass.find(filter)
-            .populate('educatorID', 'name email')
-            .populate('assignInCourse', 'name')
-            .populate('enrolledStudents.studentId', 'name email')
-            .sort({ classTiming: 1 })
-            .skip(skip)
-            .limit(limitNum)
-            .exec();
+    const totalLiveClasses = await LiveClass.countDocuments(filter);
+    const liveClasses = await LiveClass.find(filter)
+      .populate("educatorID", "name email")
+      .populate("assignInCourse", "name")
+      .populate("enrolledStudents.studentId", "name email")
+      .sort({ classTiming: 1 })
+      .skip(skip)
+      .limit(limitNum)
+      .exec();
 
-        const totalPages = Math.ceil(totalLiveClasses / limitNum);
+    const totalPages = Math.ceil(totalLiveClasses / limitNum);
 
-        return res.status(200).json({
-            success: true,
-            message: 'Live classes retrieved successfully',
-            data: {
-                liveClasses,
-                pagination: {
-                    currentPage: pageNum,
-                    totalPages,
-                    totalLiveClasses,
-                    hasNextPage: pageNum < totalPages,
-                    hasPrevPage: pageNum > 1
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching live classes:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching live classes',
-            error: error.message
-        });
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Live classes retrieved successfully",
+      data: {
+        liveClasses,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalLiveClasses,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching live classes:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching live classes",
+      error: error.message,
+    });
+  }
 };
 
 // Get live class by ID
 export const getLiveClassById = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const liveClass = await LiveClass.findById(id)
-            .populate('educatorID', 'name email')
-            .populate('assignInCourse', 'name')
-            .populate('enrolledStudents.studentId', 'name email');
+    const liveClass = await LiveClass.findById(id)
+      .populate("educatorID", "name email")
+      .populate("assignInCourse", "name")
+      .populate("enrolledStudents.studentId", "name email");
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: 'Live class retrieved successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error fetching live class:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching live class',
-            error: error.message
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Live class retrieved successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error fetching live class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching live class",
+      error: error.message,
+    });
+  }
 };
 
 // Get live class by slug
 export const getLiveClassBySlug = async (req, res) => {
-    try {
-        const { slug } = req.params;
+  try {
+    const { slug } = req.params;
 
-        const liveClass = await LiveClass.findOne({ slug })
-            .populate('educatorID', 'name email')
-            .populate('assignInCourse', 'name')
-            .populate('enrolledStudents.studentId', 'name email');
+    const liveClass = await LiveClass.findOne({ slug })
+      .populate("educatorID", "name email")
+      .populate("assignInCourse", "name")
+      .populate("enrolledStudents.studentId", "name email");
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: 'Live class retrieved successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error fetching live class:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching live class',
-            error: error.message
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Live class retrieved successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error fetching live class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching live class",
+      error: error.message,
+    });
+  }
+};
+
+// Get live class by liveClassID
+export const getLiveClassByLiveClassID = async (req, res) => {
+  try {
+    const { liveClassID } = req.params;
+
+    const liveClass = await LiveClass.findByLiveClassID(liveClassID)
+      .populate("educatorID", "name email")
+      .populate("assignInCourse", "name")
+      .populate("enrolledStudents.studentId", "name email");
+
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Live class retrieved successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error fetching live class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching live class",
+      error: error.message,
+    });
+  }
 };
 
 // Update live class
 export const updateLiveClass = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const errors = validationResult(req);
-        
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation failed',
-                errors: errors.array().map(err => ({
-                    field: err.param,
-                    message: err.msg
-                }))
-            });
-        }
+  try {
+    const { id } = req.params;
+    const errors = validationResult(req);
 
-        const liveClass = await LiveClass.findByIdAndUpdate(
-            id,
-            { ...req.body, updatedAt: Date.now() },
-            { new: true, runValidators: true }
-        ).populate('educatorID', 'name email')
-         .populate('assignInCourse', 'name')
-         .populate('enrolledStudents.studentId', 'name email');
-
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: 'Live class updated successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error updating live class:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error updating live class',
-            error: error.message
-        });
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array().map((err) => ({
+          field: err.param,
+          message: err.msg,
+        })),
+      });
     }
+
+    const liveClass = await LiveClass.findByIdAndUpdate(
+      id,
+      { ...req.body, updatedAt: Date.now() },
+      { new: true, runValidators: true }
+    )
+      .populate("educatorID", "name email")
+      .populate("assignInCourse", "name")
+      .populate("enrolledStudents.studentId", "name email");
+
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Live class updated successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error updating live class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error updating live class",
+      error: error.message,
+    });
+  }
 };
 
 // Delete live class
 export const deleteLiveClass = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const liveClass = await LiveClass.findByIdAndDelete(id);
+    const liveClass = await LiveClass.findByIdAndDelete(id);
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: 'Live class deleted successfully'
-        });
-    } catch (error) {
-        console.error('Error deleting live class:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error deleting live class',
-            error: error.message
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Live class deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting live class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error deleting live class",
+      error: error.message,
+    });
+  }
 };
 
 // Get live classes by educator
 export const getLiveClassesByEducator = async (req, res) => {
-    try {
-        const { educatorID } = req.params;
-        const { page = 1, limit = 10 } = req.query;
+  try {
+    const { educatorID } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
-        const pageNum = Math.max(1, parseInt(page));
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-        const skip = (pageNum - 1) * limitNum;
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
 
-        const totalLiveClasses = await LiveClass.countDocuments({ educatorID, isActive: true });
-        const liveClasses = await LiveClass.find({ educatorID, isActive: true })
-            .populate('educatorID', 'name email')
-            .populate('assignInCourse', 'name')
-            .populate('enrolledStudents.studentId', 'name email')
-            .sort({ classTiming: 1 })
-            .skip(skip)
-            .limit(limitNum)
-            .exec();
+    const totalLiveClasses = await LiveClass.countDocuments({
+      educatorID,
+      isActive: true,
+    });
+    const liveClasses = await LiveClass.find({ educatorID, isActive: true })
+      .populate("educatorID", "name email")
+      .populate("assignInCourse", "name")
+      .populate("enrolledStudents.studentId", "name email")
+      .sort({ classTiming: 1 })
+      .skip(skip)
+      .limit(limitNum)
+      .exec();
 
-        return res.status(200).json({
-            success: true,
-            message: 'Educator live classes retrieved successfully',
-            data: {
-                liveClasses,
-                pagination: {
-                    currentPage: pageNum,
-                    totalPages: Math.ceil(totalLiveClasses / limitNum),
-                    totalLiveClasses
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching educator live classes:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching educator live classes',
-            error: error.message
-        });
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Educator live classes retrieved successfully",
+      data: {
+        liveClasses,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalLiveClasses / limitNum),
+          totalLiveClasses,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching educator live classes:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching educator live classes",
+      error: error.message,
+    });
+  }
 };
 
 // Enroll student in live class
 export const enrollStudentInLiveClass = async (req, res) => {
-    try {
-        const { liveClassId } = req.params;
-        const { studentId } = req.body;
+  try {
+    const { liveClassId } = req.params;
+    const { studentId } = req.body;
 
-        const liveClass = await LiveClass.findById(liveClassId);
+    const liveClass = await LiveClass.findById(liveClassId);
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        await liveClass.enrollStudent(studentId);
-
-        return res.status(200).json({
-            success: true,
-            message: 'Student enrolled in live class successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error enrolling student:', error);
-        return res.status(400).json({
-            success: false,
-            message: error.message || 'Error enrolling student in live class'
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    await liveClass.enrollStudent(studentId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Student enrolled in live class successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error enrolling student:", error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Error enrolling student in live class",
+    });
+  }
 };
 
 // Remove student from live class
 export const removeStudentFromLiveClass = async (req, res) => {
-    try {
-        const { liveClassId, studentId } = req.params;
+  try {
+    const { liveClassId, studentId } = req.params;
 
-        const liveClass = await LiveClass.findById(liveClassId);
+    const liveClass = await LiveClass.findById(liveClassId);
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        await liveClass.removeStudent(studentId);
-
-        return res.status(200).json({
-            success: true,
-            message: 'Student removed from live class successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error removing student:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error removing student from live class',
-            error: error.message
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    await liveClass.removeStudent(studentId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Student removed from live class successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error removing student:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error removing student from live class",
+      error: error.message,
+    });
+  }
 };
 
 // Mark student attendance
 export const markStudentAttendance = async (req, res) => {
-    try {
-        const { liveClassId, studentId } = req.params;
-        const { attendanceTime } = req.body;
+  try {
+    const { liveClassId, studentId } = req.params;
+    const { attendanceTime } = req.body;
 
-        const liveClass = await LiveClass.findById(liveClassId);
+    const liveClass = await LiveClass.findById(liveClassId);
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        await liveClass.markAttendance(studentId, attendanceTime);
-
-        return res.status(200).json({
-            success: true,
-            message: 'Attendance marked successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error marking attendance:', error);
-        return res.status(400).json({
-            success: false,
-            message: error.message || 'Error marking attendance'
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    await liveClass.markAttendance(studentId, attendanceTime);
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance marked successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error marking attendance:", error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Error marking attendance",
+    });
+  }
 };
 
 // Get live class statistics
 export const getLiveClassStatistics = async (req, res) => {
-    try {
-        const { liveClassId } = req.params;
+  try {
+    const { liveClassId } = req.params;
 
-        const liveClass = await LiveClass.findById(liveClassId);
+    const liveClass = await LiveClass.findById(liveClassId);
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        const stats = liveClass.getLiveClassStats();
-
-        return res.status(200).json({
-            success: true,
-            message: 'Live class statistics retrieved successfully',
-            data: stats
-        });
-    } catch (error) {
-        console.error('Error fetching statistics:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching live class statistics',
-            error: error.message
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    const stats = liveClass.getLiveClassStats();
+
+    return res.status(200).json({
+      success: true,
+      message: "Live class statistics retrieved successfully",
+      data: stats,
+    });
+  } catch (error) {
+    console.error("Error fetching statistics:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching live class statistics",
+      error: error.message,
+    });
+  }
 };
 
 // Get upcoming live classes
 export const getUpcomingLiveClasses = async (req, res) => {
-    try {
-        const { page = 1, limit = 10, specification, subject } = req.query;
+  try {
+    const { page = 1, limit = 10, specification, subject } = req.query;
 
-        const pageNum = Math.max(1, parseInt(page));
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-        const skip = (pageNum - 1) * limitNum;
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
 
-        const filter = {
-            classTiming: { $gt: new Date() },
-            isActive: true,
-            isCompleted: false
-        };
+    const filter = {
+      classTiming: { $gt: new Date() },
+      isActive: true,
+      isCompleted: false,
+    };
 
         const normalizeSubjectFilter = (value) => {
             if (Array.isArray(value)) {
@@ -483,71 +533,71 @@ export const getUpcomingLiveClasses = async (req, res) => {
         if (specification) filter.liveClassSpecification = normalizeSpecificationFilter(specification);
         if (subject) filter.subject = normalizeSubjectFilter(subject);
 
-        const totalLiveClasses = await LiveClass.countDocuments(filter);
-        const liveClasses = await LiveClass.find(filter)
-            .populate('educatorID', 'name email')
-            .populate('assignInCourse', 'name')
-            .sort({ classTiming: 1 })
-            .skip(skip)
-            .limit(limitNum)
-            .exec();
+    const totalLiveClasses = await LiveClass.countDocuments(filter);
+    const liveClasses = await LiveClass.find(filter)
+      .populate("educatorID", "name email")
+      .populate("assignInCourse", "name")
+      .sort({ classTiming: 1 })
+      .skip(skip)
+      .limit(limitNum)
+      .exec();
 
-        return res.status(200).json({
-            success: true,
-            message: 'Upcoming live classes retrieved successfully',
-            data: {
-                liveClasses,
-                pagination: {
-                    currentPage: pageNum,
-                    totalPages: Math.ceil(totalLiveClasses / limitNum),
-                    totalLiveClasses
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching upcoming live classes:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching upcoming live classes',
-            error: error.message
-        });
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Upcoming live classes retrieved successfully",
+      data: {
+        liveClasses,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalLiveClasses / limitNum),
+          totalLiveClasses,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching upcoming live classes:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching upcoming live classes",
+      error: error.message,
+    });
+  }
 };
 
 // Mark live class as completed
 export const markLiveClassAsCompleted = async (req, res) => {
-    try {
-        const { liveClassId } = req.params;
-        const { recordingURL } = req.body;
+  try {
+    const { liveClassId } = req.params;
+    const { recordingURL } = req.body;
 
-        const liveClass = await LiveClass.findByIdAndUpdate(
-            liveClassId,
-            { 
-                isCompleted: true,
-                recordingURL: recordingURL || undefined,
-                updatedAt: Date.now()
-            },
-            { new: true }
-        );
+    const liveClass = await LiveClass.findByIdAndUpdate(
+      liveClassId,
+      {
+        isCompleted: true,
+        recordingURL: recordingURL || undefined,
+        updatedAt: Date.now(),
+      },
+      { new: true }
+    );
 
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: 'Live class marked as completed successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error marking live class as completed:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error marking live class as completed',
-            error: error.message
-        });
+    if (!liveClass) {
+      return res.status(404).json({
+        success: false,
+        message: "Live class not found",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Live class marked as completed successfully",
+      data: liveClass,
+    });
+  } catch (error) {
+    console.error("Error marking live class as completed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error marking live class as completed",
+      error: error.message,
+    });
+  }
 };

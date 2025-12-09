@@ -1,5 +1,8 @@
 import { validationResult } from "express-validator";
 import TestSeries from "../models/testSeries.js";
+import Course from "../models/course.js";
+import mongoose from "mongoose";
+import notificationService from "../services/notification.service.js";
 
 // ==================== CRUD Operations ====================
 
@@ -23,6 +26,8 @@ export const createTestSeries = async (req, res) => {
       specialization,
       isCourseSpecific,
       courseId,
+      tests,
+      liveTests,
     } = req.body;
 
     // Check if test series with same title exists for this educator
@@ -46,24 +51,64 @@ export const createTestSeries = async (req, res) => {
       });
     }
 
+    const normalizedTests = Array.isArray(tests)
+      ? tests
+      : Array.isArray(liveTests)
+      ? liveTests
+      : [];
+
+    const parsedNumberOfTests =
+      numberOfTests !== undefined && numberOfTests !== null
+        ? Number(numberOfTests)
+        : undefined;
+
+    const totalTestsCount =
+      typeof parsedNumberOfTests === "number" &&
+      !Number.isNaN(parsedNumberOfTests) &&
+      parsedNumberOfTests > 0
+        ? parsedNumberOfTests
+        : normalizedTests.length;
+
     const testSeries = new TestSeries({
       title,
       description,
       price,
       validity,
-      numberOfTests,
+      numberOfTests: totalTestsCount,
       image,
       educatorId,
       subject,
       specialization,
       isCourseSpecific: isCourseSpecific || false,
       courseId: isCourseSpecific ? courseId : null,
+      tests: normalizedTests,
     });
 
     // Generate slug
     testSeries.slug = testSeries.generateSlug();
 
     await testSeries.save();
+
+    // Update educator's testSeries array
+    try {
+      await mongoose.model("Educator").findByIdAndUpdate(educatorId, {
+        $push: { testSeries: testSeries._id },
+      });
+    } catch (error) {
+      console.error("Error updating educator testSeries array:", error);
+    }
+
+    // Notify all followers of the educator
+    try {
+      await notificationService.notifyFollowers(educatorId, "test_series", {
+        _id: testSeries._id,
+        title: testSeries.title,
+        slug: testSeries.slug,
+      });
+    } catch (notificationError) {
+      console.error("Error sending notifications:", notificationError);
+      // Don't fail the test series creation if notification fails
+    }
 
     res.status(201).json({
       message: "Test series created successfully",
@@ -253,6 +298,42 @@ export const updateTestSeries = async (req, res) => {
   }
 };
 
+// Update test series banner image
+export const updateTestSeriesImage = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    if (!req.file || !req.file.path) {
+      return res
+        .status(400)
+        .json({ message: "Image file is required for this operation" });
+    }
+
+    const { id } = req.params;
+    const testSeries = await TestSeries.findOneAndUpdate(
+      { _id: id, isActive: true },
+      { image: req.file.path, updatedAt: Date.now() },
+      { new: true, runValidators: false }
+    );
+
+    if (!testSeries) {
+      return res.status(404).json({ message: "Test series not found" });
+    }
+
+    res.status(200).json({
+      message: "Test series image updated successfully",
+      imageUrl: testSeries.image,
+      testSeries,
+    });
+  } catch (error) {
+    console.error("Error updating test series image:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 // Delete test series (soft delete)
 export const deleteTestSeries = async (req, res) => {
   try {
@@ -271,6 +352,17 @@ export const deleteTestSeries = async (req, res) => {
 
     if (!testSeries) {
       return res.status(404).json({ message: "Test series not found" });
+    }
+
+    // Remove from educator's testSeries array
+    try {
+      await mongoose
+        .model("Educator")
+        .findByIdAndUpdate(testSeries.educatorId, {
+          $pull: { testSeries: testSeries._id },
+        });
+    } catch (error) {
+      console.error("Error updating educator testSeries array:", error);
     }
 
     res.status(200).json({ message: "Test series deleted successfully" });
@@ -654,6 +746,104 @@ export const removeTest = async (req, res) => {
   }
 };
 
+// Bulk add tests to test series
+export const bulkAddTests = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { id } = req.params;
+    const { testIds } = req.body;
+
+    if (!Array.isArray(testIds) || testIds.length === 0) {
+      return res.status(400).json({
+        message: "testIds must be a non-empty array",
+      });
+    }
+
+    const testSeries = await TestSeries.findOne({ _id: id, isActive: true });
+
+    if (!testSeries) {
+      return res.status(404).json({ message: "Test series not found" });
+    }
+
+    const initialCount = testSeries.tests.length;
+
+    // Use $addToSet to avoid duplicates
+    const updatedTestSeries = await TestSeries.findOneAndUpdate(
+      { _id: id, isActive: true },
+      {
+        $addToSet: { tests: { $each: testIds } },
+        $set: { updatedAt: Date.now() },
+      },
+      { new: true, runValidators: true }
+    );
+
+    const addedCount = updatedTestSeries.tests.length - initialCount;
+
+    res.status(200).json({
+      message: `${addedCount} test(s) added successfully`,
+      testSeries: updatedTestSeries,
+      addedCount,
+      totalTests: updatedTestSeries.tests.length,
+    });
+  } catch (error) {
+    console.error("Error bulk adding tests:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Bulk remove tests from test series
+export const bulkRemoveTests = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { id } = req.params;
+    const { testIds } = req.body;
+
+    if (!Array.isArray(testIds) || testIds.length === 0) {
+      return res.status(400).json({
+        message: "testIds must be a non-empty array",
+      });
+    }
+
+    const testSeries = await TestSeries.findOne({ _id: id, isActive: true });
+
+    if (!testSeries) {
+      return res.status(404).json({ message: "Test series not found" });
+    }
+
+    const initialCount = testSeries.tests.length;
+
+    // Use $pull with $in to remove multiple tests
+    const updatedTestSeries = await TestSeries.findOneAndUpdate(
+      { _id: id, isActive: true },
+      {
+        $pull: { tests: { $in: testIds } },
+        $set: { updatedAt: Date.now() },
+      },
+      { new: true, runValidators: true }
+    );
+
+    const removedCount = initialCount - updatedTestSeries.tests.length;
+
+    res.status(200).json({
+      message: `${removedCount} test(s) removed successfully`,
+      testSeries: updatedTestSeries,
+      removedCount,
+      totalTests: updatedTestSeries.tests.length,
+    });
+  } catch (error) {
+    console.error("Error bulk removing tests:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 // Update test series rating
 export const updateTestSeriesRating = async (req, res) => {
   try {
@@ -808,6 +998,106 @@ export const getOverallStatistics = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching overall statistics:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Assign test series to course
+export const assignTestSeriesToCourse = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { id } = req.params;
+    const { courseId } = req.body;
+
+    // Find the test series
+    const testSeries = await TestSeries.findOne({ _id: id, isActive: true });
+    if (!testSeries) {
+      return res.status(404).json({ message: "Test series not found" });
+    }
+
+    // If courseId is provided, assign to course
+    if (courseId) {
+      // Find the course
+      const course = await Course.findOne({ _id: courseId, isActive: true });
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      // Remove from previous course if exists
+      if (testSeries.courseId && testSeries.courseId.toString() !== courseId) {
+        const previousCourse = await Course.findOne({
+          _id: testSeries.courseId,
+          isActive: true,
+        });
+        if (previousCourse) {
+          previousCourse.testSeries = previousCourse.testSeries.filter(
+            (seriesId) => seriesId.toString() !== id
+          );
+          previousCourse.updatedAt = Date.now();
+          await previousCourse.save();
+        }
+      }
+
+      // Add to new course if not already present
+      if (!course.testSeries.includes(id)) {
+        course.testSeries.push(id);
+        course.updatedAt = Date.now();
+        await course.save();
+      }
+
+      // Update test series with validators enabled (subjects should now be lowercase)
+      const updatedTestSeries = await TestSeries.findOneAndUpdate(
+        { _id: id, isActive: true },
+        {
+          courseId: courseId,
+          isCourseSpecific: true,
+          updatedAt: Date.now(),
+        },
+        { new: true, runValidators: true }
+      );
+
+      return res.status(200).json({
+        message: "Test series assigned to course successfully",
+        testSeries: updatedTestSeries,
+      });
+    } else {
+      // Unassign from course
+      if (testSeries.courseId) {
+        const previousCourse = await Course.findOne({
+          _id: testSeries.courseId,
+          isActive: true,
+        });
+        if (previousCourse) {
+          previousCourse.testSeries = previousCourse.testSeries.filter(
+            (seriesId) => seriesId.toString() !== id
+          );
+          previousCourse.updatedAt = Date.now();
+          await previousCourse.save();
+        }
+      }
+
+      // Update test series with validators enabled (subjects should now be lowercase)
+      const updatedTestSeries = await TestSeries.findOneAndUpdate(
+        { _id: id, isActive: true },
+        {
+          courseId: null,
+          isCourseSpecific: false,
+          updatedAt: Date.now(),
+        },
+        { new: true, runValidators: true }
+      );
+
+      return res.status(200).json({
+        message: "Test series unassigned from course successfully",
+        testSeries: updatedTestSeries,
+      });
+    }
+  } catch (error) {
+    console.error("Error assigning test series to course:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

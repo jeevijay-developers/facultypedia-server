@@ -46,19 +46,19 @@ export const createStudent = async (req, res) => {
             });
         }
 
-        const {
-            name,
-            username,
-            password,
-            mobileNumber,
-            email,
-            address,
-            image,
-            specialization,
-            class: studentClass,
-            deviceToken,
-            preferences
-        } = req.body;
+    const {
+      name,
+      username,
+      password,
+      mobileNumber,
+      email,
+      address,
+      image,
+      specialization,
+      class: studentClass,
+      deviceToken,
+      preferences,
+    } = req.body;
 
         const normalizedClass = normalizeClassInput(studentClass);
 
@@ -70,12 +70,13 @@ export const createStudent = async (req, res) => {
             ]
         });
 
-        if (existingStudent) {
-            return res.status(400).json({
-                success: false,
-                message: 'Student with this email, username, or mobile number already exists'
-            });
-        }
+    if (existingStudent) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Student with this email, username, or mobile number already exists",
+      });
+    }
 
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -115,37 +116,37 @@ export const createStudent = async (req, res) => {
 
 // Get all students with filtering and pagination
 export const getAllStudents = async (req, res) => {
-    try {
-        const {
-            page = 1,
-            limit = 10,
-            specialization,
-            class: className,
-            isActive = true,
-            search,
-            sortBy = 'joinedAt',
-            sortOrder = 'desc'
-        } = req.query;
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      specialization,
+      class: className,
+      isActive = true,
+      search,
+      sortBy = "joinedAt",
+      sortOrder = "desc",
+    } = req.query;
 
-        console.log('getAllStudents called with query:', req.query);
+    console.log("getAllStudents called with query:", req.query);
 
         const filter = { isActive: isActive === 'true' };
 
-        if (specialization) {
-            filter.specialization = specialization;
-        }
+    if (specialization) {
+      filter.specialization = specialization;
+    }
 
         if (className) {
             filter.class = normalizeClassInput(className);
         }
 
-        if (search) {
-            filter.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } },
-                { username: { $regex: search, $options: 'i' } }
-            ];
-        }
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { username: { $regex: search, $options: "i" } },
+      ];
+    }
 
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
@@ -172,7 +173,12 @@ export const getAllStudents = async (req, res) => {
         const totalStudents = await Student.countDocuments(filter);
         const totalPages = Math.ceil(totalStudents / parseInt(limit, 10));
 
-        console.log('Found students:', students.length, 'Total students:', totalStudents);
+    console.log(
+      "Found students:",
+      students.length,
+      "Total students:",
+      totalStudents
+    );
 
         res.status(200).json({
             success: true,
@@ -200,8 +206,8 @@ export const getAllStudents = async (req, res) => {
 
 // Get student by ID
 export const getStudentById = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
         const student = await Student.findById(id)
             .populate('courses.courseId', 'title description image duration')
@@ -214,12 +220,12 @@ export const getStudentById = async (req, res) => {
             .populate('tests.testId', 'title duration overallMarks')
             .select('-password');
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
         res.status(200).json({
             success: true,
@@ -238,8 +244,8 @@ export const getStudentById = async (req, res) => {
 
 // Get student by username
 export const getStudentByUsername = async (req, res) => {
-    try {
-        const { username } = req.params;
+  try {
+    const { username } = req.params;
 
         const student = await Student.findOne({ username, isActive: true })
             .populate('courses.courseId', 'title description')
@@ -249,12 +255,12 @@ export const getStudentByUsername = async (req, res) => {
             })
             .select('-password');
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
         res.status(200).json({
             success: true,
@@ -325,12 +331,12 @@ export const updateStudent = async (req, res) => {
             .populate('followingEducators.educatorId', 'name email')
             .select('-password');
 
-        if (!updatedStudent) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!updatedStudent) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
         res.status(200).json({
             success: true,
@@ -349,21 +355,21 @@ export const updateStudent = async (req, res) => {
 
 // Delete student (soft delete)
 export const deleteStudent = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const student = await Student.findByIdAndUpdate(
-            id,
-            { isActive: false },
-            { new: true }
-        );
+    const student = await Student.findByIdAndUpdate(
+      id,
+      { isActive: false },
+      { new: true }
+    );
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
         res.status(200).json({
             success: true,
@@ -381,20 +387,20 @@ export const deleteStudent = async (req, res) => {
 
 // Enroll student in course
 export const enrollInCourse = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { courseId } = req.body;
+  try {
+    const { id } = req.params;
+    const { courseId } = req.body;
 
-        const student = await Student.findById(id);
+    const student = await Student.findById(id);
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
-        await student.enrollInCourse(courseId);
+    await student.enrollInCourse(courseId);
 
         res.status(200).json({
             success: true,
@@ -415,18 +421,18 @@ export const enrollInCourse = async (req, res) => {
 
 // Follow educator
 export const followEducator = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { educatorId } = req.body;
+  try {
+    const { id } = req.params;
+    const { educatorId } = req.body;
 
-        const student = await Student.findById(id);
+    const student = await Student.findById(id);
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
         await student.followEducator(educatorId);
 
@@ -455,18 +461,18 @@ export const followEducator = async (req, res) => {
 
 // Unfollow educator
 export const unfollowEducator = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { educatorId } = req.body;
+  try {
+    const { id } = req.params;
+    const { educatorId } = req.body;
 
-        const student = await Student.findById(id);
+    const student = await Student.findById(id);
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
         await student.unfollowEducator(educatorId);
 
@@ -495,20 +501,20 @@ export const unfollowEducator = async (req, res) => {
 
 // Register for webinar
 export const registerForWebinar = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { webinarId } = req.body;
+  try {
+    const { id } = req.params;
+    const { webinarId } = req.body;
 
-        const student = await Student.findById(id);
+    const student = await Student.findById(id);
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
-        await student.registerForWebinar(webinarId);
+    await student.registerForWebinar(webinarId);
 
         res.status(200).json({
             success: true,
@@ -529,19 +535,19 @@ export const registerForWebinar = async (req, res) => {
 
 // Get student statistics
 export const getStudentStatistics = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const student = await Student.findById(id);
+    const student = await Student.findById(id);
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
-        const statistics = student.getStudentStats();
+    const statistics = student.getStudentStats();
 
         res.status(200).json({
             success: true,
@@ -560,9 +566,9 @@ export const getStudentStatistics = async (req, res) => {
 
 // Get students by specialization
 export const getStudentsBySpecialization = async (req, res) => {
-    try {
-        const { specialization } = req.params;
-        const { page = 1, limit = 10 } = req.query;
+  try {
+    const { specialization } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
@@ -601,9 +607,9 @@ export const getStudentsBySpecialization = async (req, res) => {
 
 // Get students by class
 export const getStudentsByClass = async (req, res) => {
-    try {
-        const { className } = req.params;
-        const { page = 1, limit = 10 } = req.query;
+  try {
+    const { className } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
         const normalizedClass = normalizeClassInput(className);
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
@@ -891,18 +897,18 @@ export const getStudentNotifications = async (req, res) => {
 
 // Update student password
 export const updatePassword = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { currentPassword, newPassword } = req.body;
+  try {
+    const { id } = req.params;
+    const { currentPassword, newPassword } = req.body;
 
-        const student = await Student.findById(id);
+    const student = await Student.findById(id);
 
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: 'Student not found'
-            });
-        }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
         const isValidPassword = await bcrypt.compare(currentPassword, student.password);
         if (!isValidPassword) {
@@ -949,3 +955,4 @@ export default {
     getStudentNotifications,
     updatePassword
 };
+
