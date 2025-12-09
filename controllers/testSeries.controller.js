@@ -97,11 +97,11 @@ export const getAllTestSeries = async (req, res) => {
 
     // Apply filters
     if (specialization) {
-      query.specialization = specialization;
+      query.specialization = { $in: [specialization] };
     }
 
     if (subject) {
-      query.subject = subject;
+      query.subject = { $in: [subject] };
     }
 
     if (minPrice) {

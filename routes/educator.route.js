@@ -21,6 +21,7 @@ import {
   getTopRatedEducators,
   getEducatorStatistics,
 } from "../controllers/educator.controller.js";
+import { signupEducator as createEducatorProfile } from "../controllers/auth.controller.js";
 
 import {
   validateObjectId,
@@ -39,6 +40,7 @@ import {
   validateStatus,
   validateStudentId,
   validateRating,
+  educatorSignupValidation,
   validateRevenue,
   validateSpecializationParam,
   validateSubjectParam,
@@ -73,6 +75,9 @@ const ratingValidation = [...validateObjectId(), ...validateRating];
 const revenueValidation = [...validateObjectId(), ...validateRevenue];
 
 // Routes
+
+// POST /api/educators - Create educator profile (signup)
+router.post("/", educatorSignupValidation, createEducatorProfile);
 
 // GET /api/educators - Get all educators with filtering and pagination
 router.get("/", getAllEducators);

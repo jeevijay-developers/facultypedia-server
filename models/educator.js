@@ -3,6 +3,18 @@ import bcrypt from "bcrypt";
 
 const educatorSchema = new mongoose.Schema(
   {
+    firstName: {
+      type: String,
+      trim: true,
+      minlength: [2, "First name must be at least 2 characters"],
+      maxlength: [50, "First name cannot exceed 50 characters"],
+    },
+    lastName: {
+      type: String,
+      trim: true,
+      minlength: [1, "Last name must be at least 1 character"],
+      maxlength: [50, "Last name cannot exceed 50 characters"],
+    },
     fullName: {
       type: String,
       required: [true, "Full name is required"],
@@ -322,6 +334,14 @@ const educatorSchema = new mongoose.Schema(
   }
 );
 
+educatorSchema.virtual("introVideoLink")
+  .get(function () {
+    return this.introVideo;
+  })
+  .set(function (value) {
+    this.introVideo = value;
+  });
+
 // Indexes for better query performance
 // Note: username, email, and slug indexes are already created by unique: true in schema
 educatorSchema.index({ specialization: 1 });
@@ -330,6 +350,26 @@ educatorSchema.index({ class: 1 });
 educatorSchema.index({ status: 1 });
 educatorSchema.index({ "rating.average": -1 });
 educatorSchema.index({ fullName: "text", username: "text" });
+
+// Ensure first/last name sync with full name
+educatorSchema.pre("validate", function (next) {
+  if (!this.fullName) {
+    const parts = [this.firstName, this.lastName].filter(Boolean);
+    if (parts.length) {
+      this.fullName = parts.join(" ").trim();
+    }
+  }
+
+  if (!this.firstName && this.fullName) {
+    const [first = "", ...rest] = this.fullName.trim().split(/\s+/);
+    this.firstName = first ? first.trim() : undefined;
+    this.lastName = rest.length
+      ? rest.join(" ").trim()
+      : this.lastName;
+  }
+
+  next();
+});
 
 // Pre-save middleware to hash password
 educatorSchema.pre("save", async function (next) {

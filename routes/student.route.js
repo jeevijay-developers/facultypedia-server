@@ -13,6 +13,7 @@ import {
     getStudentStatistics,
     getStudentsBySpecialization,
     getStudentsByClass,
+    getStudentNotifications,
     updatePassword
 } from "../controllers/student.controller.js";
 
@@ -163,6 +164,17 @@ router.post("/:id/register-webinar", studentWebinarValidation, registerForWebina
  * @param   id - Student ObjectId
  */
 router.get("/:id/statistics", validateId, getStudentStatistics);
+
+/**
+ * @route   GET /api/students/:id/notifications
+ * @desc    Get notifications for a student based on followed educators
+ * @access  Private (Student)
+ * @param   id - Student ObjectId
+ * @query   {
+ *   limit?: number (optional, default: 20, max: 50)
+ * }
+ */
+router.get("/:id/notifications", validateId, getStudentNotifications);
 
 // ======================= Specialization and Class Specific Routes =======================
 

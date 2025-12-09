@@ -4,7 +4,6 @@ import {
     getAllLiveClasses,
     getLiveClassById,
     getLiveClassBySlug,
-    getLiveClassByLiveClassID,
     updateLiveClass,
     deleteLiveClass,
     getLiveClassesByEducator,
@@ -36,14 +35,11 @@ router.get('/upcoming', getUpcomingLiveClasses);
 // Get live class by slug
 router.get('/slug/:slug', getLiveClassBySlug);
 
-// Get live class by liveClassID
-router.get('/id/:liveClassID', getLiveClassByLiveClassID);
+// Get live classes by educator
+router.get('/educator/:educatorID', getLiveClassesByEducator);
 
 // Get live class by ID
 router.get('/:id', getLiveClassById);
-
-// Get live classes by educator
-router.get('/educator/:educatorID', getLiveClassesByEducator);
 
 // Update live class
 router.put('/:id', updateLiveClassValidation, updateLiveClass);

@@ -1,7 +1,13 @@
 import "dotenv/config";
+import path from "path";
 import multer from "multer";
+import { Readable } from "stream";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
+import {
+  MAX_STUDY_MATERIAL_FILE_COUNT,
+  MAX_STUDY_MATERIAL_FILE_SIZE,
+} from "../util/studyMaterial.js";
 
 const { CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET } = process.env;
 
@@ -85,12 +91,94 @@ export const uploadGenericImage = multer({
   },
 });
 
-export const deleteCloudinaryAsset = async (publicId) => {
+const STUDY_MATERIAL_FOLDER = "facultypedia/study-materials";
+const PDF_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/x-pdf",
+  "application/acrobat",
+  "applications/vnd.pdf",
+]);
+
+const buildStudyMaterialPublicId = (originalName = "") => {
+  const baseName = path.parse(originalName).name || "study-material";
+  const normalized = baseName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "") || "study-material";
+  return `${normalized}-${Date.now()}`;
+};
+
+const getStudyMaterialUploadOptions = (file) => ({
+  folder: STUDY_MATERIAL_FOLDER,
+  resource_type: "raw",
+  type: "upload",
+  overwrite: false,
+  use_filename: false,
+  unique_filename: false,
+  public_id: `${buildStudyMaterialPublicId(file?.originalname)}`,
+  format: "pdf",
+});
+
+const bufferToStream = (buffer) => {
+  const readable = new Readable({
+    read() {
+      this.push(buffer);
+      this.push(null);
+    },
+  });
+  return readable;
+};
+
+export const uploadStudyMaterialPdfBuffer = (file) =>
+  new Promise((resolve, reject) => {
+    if (!file?.buffer) {
+      reject(new Error("Invalid PDF buffer provided for upload"));
+      return;
+    }
+
+    const uploadStream = cloudinary.uploader.upload_stream(
+      getStudyMaterialUploadOptions(file),
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(result);
+      }
+    );
+
+    bufferToStream(file.buffer).pipe(uploadStream);
+  });
+
+export const uploadStudyMaterialDoc = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_STUDY_MATERIAL_FILE_SIZE,
+    files: MAX_STUDY_MATERIAL_FILE_COUNT,
+  },
+  fileFilter: (_req, file, cb) => {
+    const mimeType = (file?.mimetype || "").toLowerCase();
+    if (!PDF_MIME_TYPES.has(mimeType)) {
+      cb(new Error("Only PDF files are allowed"));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+export const deleteCloudinaryAsset = async (
+  publicId,
+  { resourceType = "image" } = {}
+) => {
   if (!publicId) {
     return;
   }
   try {
-    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
   } catch (error) {
     console.error("Failed to delete Cloudinary asset", error);
   }

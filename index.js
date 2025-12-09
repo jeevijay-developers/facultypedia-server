@@ -13,7 +13,9 @@ import postRoutes from "./routes/post.route.js";
 import paymentRoutes from "./routes/payment.route.js";
 import educatorUpdateRoutes from "./routes/educatorUpdate.route.js";
 import liveClassRoutes from "./routes/liveClass.route.js";
+import studyMaterialRoutes from "./routes/studyMaterial.route.js";
 import uploadRoutes from "./routes/upload.route.js";
+import videoRoutes from "./routes/video.route.js";
 import connectDB from "./util/DBConnect.js";
 dotenv.config();
 
@@ -51,6 +53,8 @@ APP.use("/api/courses", courseRoutes);
 APP.use("/api/test-series", testSeriesRoutes);
 APP.use("/api/students", studentRoutes);
 APP.use("/api/live-classes", liveClassRoutes);
+APP.use("/api/study-materials", studyMaterialRoutes);
+APP.use("/api/videos", videoRoutes);
 APP.use("/api/posts", postRoutes);
 APP.use("/api/payments", paymentRoutes);
 APP.use("/api/educator-update", educatorUpdateRoutes);

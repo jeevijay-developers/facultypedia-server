@@ -1,13 +1,28 @@
 import mongoose from "mongoose";
 
+const SUBJECTS = [
+    "biology",
+    "physics",
+    "mathematics",
+    "chemistry",
+    "english",
+    "hindi"
+];
+
+const SPECIALIZATIONS = ["IIT-JEE", "NEET", "CBSE"];
+
+const CLASS_LEVELS = [
+    "class-6th",
+    "class-7th",
+    "class-8th",
+    "class-9th",
+    "class-10th",
+    "class-11th",
+    "class-12th",
+    "dropper"
+];
+
 const liveClassSchema = new mongoose.Schema({
-    liveClassID: {
-        type: String,
-        unique: true,
-        required: true,
-        trim: true,
-        uppercase: true
-    },
     educatorID: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Educator',
@@ -31,15 +46,27 @@ const liveClassSchema = new mongoose.Schema({
         min: 0
     },
     subject: {
-        type: String,
-        enum: ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
+        type: [{
+            type: String,
+            enum: SUBJECTS
+        }],
         required: true,
+        validate: {
+            validator: (value) => Array.isArray(value) && value.length > 0,
+            message: 'At least one subject is required'
+        },
         index: true
     },
     liveClassSpecification: {
-        type: String,
-        enum: ['IIT-JEE', 'NEET', 'CBSE'],
+        type: [{
+            type: String,
+            enum: SPECIALIZATIONS
+        }],
         required: true,
+        validate: {
+            validator: (value) => Array.isArray(value) && value.length > 0,
+            message: 'At least one specialization is required'
+        },
         index: true
     },
     introVideo: {
@@ -64,10 +91,7 @@ const liveClassSchema = new mongoose.Schema({
     },
     class: {
         type: [String],
-        enum: [
-            'Class 6th', 'Class 7th', 'Class 8th', 'Class 9th', 'Class 10th',
-            'Class 11th', 'Class 12th', 'Dropper'
-        ],
+                enum: CLASS_LEVELS,
         required: true
     },
     description: {
@@ -151,12 +175,22 @@ liveClassSchema.statics.findByEducator = function(educatorId) {
 
 // Static method to find live classes by subject
 liveClassSchema.statics.findBySubject = function(subject) {
-    return this.find({ subject, isActive: true });
+    if (!subject) {
+        return this.find({ isActive: true });
+    }
+
+    const subjects = Array.isArray(subject) ? subject : [subject];
+    return this.find({ subject: { $in: subjects }, isActive: true });
 };
 
 // Static method to find live classes by specification
 liveClassSchema.statics.findBySpecification = function(specification) {
-    return this.find({ liveClassSpecification: specification, isActive: true });
+    if (!specification) {
+        return this.find({ isActive: true });
+    }
+
+    const specs = Array.isArray(specification) ? specification : [specification];
+    return this.find({ liveClassSpecification: { $in: specs }, isActive: true });
 };
 
 // Static method to find live classes by class
@@ -180,11 +214,6 @@ liveClassSchema.statics.findCourseSpecific = function(courseId) {
         assignInCourse: courseId,
         isActive: true 
     });
-};
-
-// Static method to find live class by liveClassID
-liveClassSchema.statics.findByLiveClassID = function(liveClassID) {
-    return this.findOne({ liveClassID: liveClassID.toUpperCase() });
 };
 
 // Virtual to get available seats

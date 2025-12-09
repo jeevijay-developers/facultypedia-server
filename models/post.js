@@ -10,25 +10,41 @@ const postSchema = new Schema(
       required: true,
       index: true,
     },
-    subject: {
-      type: String,
-      enum: [
-        "biology",
-        "physics",
-        "mathematics",
-        "chemistry",
-        "english",
-        "hindi",
+    subjects: {
+      type: [
+        {
+          type: String,
+          enum: [
+            "biology",
+            "physics",
+            "mathematics",
+            "chemistry",
+            "english",
+            "hindi",
+          ],
+          lowercase: true,
+          trim: true,
+        },
       ],
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length > 0,
+        message: "At least one subject is required",
+      },
       required: true,
-      lowercase: true,
-      trim: true,
     },
-    specialization: {
-      type: String,
-      enum: ["IIT-JEE", "NEET", "CBSE"],
+    specializations: {
+      type: [
+        {
+          type: String,
+          enum: ["IIT-JEE", "NEET", "CBSE"],
+          trim: true,
+        },
+      ],
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length > 0,
+        message: "At least one specialization is required",
+      },
       required: true,
-      trim: true,
     },
     title: {
       type: String,
@@ -48,8 +64,8 @@ const postSchema = new Schema(
   }
 );
 
-postSchema.index({ specialization: 1 });
-postSchema.index({ subject: 1 });
+postSchema.index({ specializations: 1 });
+postSchema.index({ subjects: 1 });
 postSchema.index({ title: "text", description: "text" });
 
 export default mongoose.model("Post", postSchema);

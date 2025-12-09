@@ -1,11 +1,42 @@
 import Student from '../models/student.js';
+import Course from '../models/course.js';
+import Webinar from '../models/webinar.js';
+import EducatorModel from '../models/educator.js';
 import { validationResult } from "express-validator";
 import bcrypt from 'bcrypt';
+import mongoose from 'mongoose';
+
+const CLASS_SLUG_MAP = {
+    'class-6th': 'Class 6th',
+    'class-7th': 'Class 7th',
+    'class-8th': 'Class 8th',
+    'class-9th': 'Class 9th',
+    'class-10th': 'Class 10th',
+    'class-11th': 'Class 11th',
+    'class-12th': 'Class 12th',
+    dropper: 'Dropper'
+};
+
+const DEFAULT_NOTIFICATION_LIMIT = 20;
+const MAX_NOTIFICATION_LIMIT = 50;
+
+const NOTIFICATION_ENTITY_TYPES = {
+    COURSE: 'course',
+    WEBINAR: 'webinar'
+};
+
+const normalizeClassInput = (value) => {
+    if (!value || typeof value !== 'string') {
+        return value;
+    }
+
+    const normalizedKey = value.toLowerCase().replace(/\s+/g, '-');
+    return CLASS_SLUG_MAP[normalizedKey] || value;
+};
 
 // Create a new student
 export const createStudent = async (req, res) => {
     try {
-        // Check for validation errors
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({
@@ -29,7 +60,8 @@ export const createStudent = async (req, res) => {
             preferences
         } = req.body;
 
-        // Check if student already exists
+        const normalizedClass = normalizeClassInput(studentClass);
+
         const existingStudent = await Student.findOne({
             $or: [
                 { email },
@@ -45,11 +77,9 @@ export const createStudent = async (req, res) => {
             });
         }
 
-        // Hash password
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // Create new student
         const newStudent = new Student({
             name,
             username,
@@ -59,14 +89,12 @@ export const createStudent = async (req, res) => {
             address,
             image,
             specialization,
-            class: studentClass,
+            class: normalizedClass,
             deviceToken,
             preferences
         });
 
         const savedStudent = await newStudent.save();
-
-        // Remove password from response
         const studentResponse = savedStudent.toObject();
         delete studentResponse.password;
 
@@ -75,7 +103,6 @@ export const createStudent = async (req, res) => {
             message: 'Student created successfully',
             data: studentResponse
         });
-
     } catch (error) {
         console.error('Error creating student:', error);
         res.status(500).json({
@@ -102,7 +129,6 @@ export const getAllStudents = async (req, res) => {
 
         console.log('getAllStudents called with query:', req.query);
 
-        // Build filter object
         const filter = { isActive: isActive === 'true' };
 
         if (specialization) {
@@ -110,7 +136,7 @@ export const getAllStudents = async (req, res) => {
         }
 
         if (className) {
-            filter.class = className;
+            filter.class = normalizeClassInput(className);
         }
 
         if (search) {
@@ -121,14 +147,11 @@ export const getAllStudents = async (req, res) => {
             ];
         }
 
-        // Calculate pagination
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-        // Build sort object
         const sort = {};
         sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-        // Get students with population
         const students = await Student.find(filter)
             .populate({
                 path: 'courses.courseId',
@@ -140,15 +163,14 @@ export const getAllStudents = async (req, res) => {
                 select: 'name email subjects',
                 strictPopulate: false
             })
-            .select('-password') // Exclude password field
+            .select('-password')
             .sort(sort)
             .skip(skip)
-            .limit(parseInt(limit))
+            .limit(parseInt(limit, 10))
             .lean();
 
-        // Get total count for pagination
         const totalStudents = await Student.countDocuments(filter);
-        const totalPages = Math.ceil(totalStudents / parseInt(limit));
+        const totalPages = Math.ceil(totalStudents / parseInt(limit, 10));
 
         console.log('Found students:', students.length, 'Total students:', totalStudents);
 
@@ -158,15 +180,14 @@ export const getAllStudents = async (req, res) => {
             data: {
                 students: students || [],
                 pagination: {
-                    currentPage: parseInt(page),
+                    currentPage: parseInt(page, 10),
                     totalPages,
                     totalStudents,
-                    hasNextPage: parseInt(page) < totalPages,
-                    hasPrevPage: parseInt(page) > 1
+                    hasNextPage: parseInt(page, 10) < totalPages,
+                    hasPrevPage: parseInt(page, 10) > 1
                 }
             }
         });
-
     } catch (error) {
         console.error('Error fetching students:', error);
         res.status(500).json({
@@ -186,7 +207,10 @@ export const getStudentById = async (req, res) => {
             .populate('courses.courseId', 'title description image duration')
             .populate('testSeries.testSeriesId', 'title description totalTests')
             .populate('webinars.webinarId', 'title scheduledDate duration')
-            .populate('followingEducators.educatorId', 'name email subjects specialization')
+            .populate({
+                path: 'followingEducators.educatorId',
+                select: 'fullName firstName lastName username email specialization subject image profilePicture rating yoe experience yearsExperience slug'
+            })
             .populate('tests.testId', 'title duration overallMarks')
             .select('-password');
 
@@ -202,7 +226,6 @@ export const getStudentById = async (req, res) => {
             message: 'Student retrieved successfully',
             data: student
         });
-
     } catch (error) {
         console.error('Error fetching student:', error);
         res.status(500).json({
@@ -220,7 +243,10 @@ export const getStudentByUsername = async (req, res) => {
 
         const student = await Student.findOne({ username, isActive: true })
             .populate('courses.courseId', 'title description')
-            .populate('followingEducators.educatorId', 'name email subjects')
+            .populate({
+                path: 'followingEducators.educatorId',
+                select: 'fullName firstName lastName username email specialization subject image profilePicture rating yoe experience yearsExperience slug'
+            })
             .select('-password');
 
         if (!student) {
@@ -235,7 +261,6 @@ export const getStudentByUsername = async (req, res) => {
             message: 'Student retrieved successfully',
             data: student
         });
-
     } catch (error) {
         console.error('Error fetching student:', error);
         res.status(500).json({
@@ -251,7 +276,7 @@ export const updateStudent = async (req, res) => {
     try {
         const { id } = req.params;
         const errors = validationResult(req);
-        
+
         if (!errors.isEmpty()) {
             return res.status(400).json({
                 success: false,
@@ -261,25 +286,27 @@ export const updateStudent = async (req, res) => {
         }
 
         const updateData = { ...req.body };
-        
-        // Remove fields that shouldn't be updated via this endpoint
+
         delete updateData.password;
         delete updateData.role;
         delete updateData.joinedAt;
         delete updateData.tests;
         delete updateData.results;
 
-        // If email, username, or mobile is being updated, check for duplicates
+        if (updateData.class) {
+            updateData.class = normalizeClassInput(updateData.class);
+        }
+
         if (updateData.email || updateData.username || updateData.mobileNumber) {
             const duplicateFilter = { _id: { $ne: id } };
             const orConditions = [];
-            
+
             if (updateData.email) orConditions.push({ email: updateData.email });
             if (updateData.username) orConditions.push({ username: updateData.username });
             if (updateData.mobileNumber) orConditions.push({ mobileNumber: updateData.mobileNumber });
-            
+
             duplicateFilter.$or = orConditions;
-            
+
             const existingStudent = await Student.findOne(duplicateFilter);
             if (existingStudent) {
                 return res.status(400).json({
@@ -294,9 +321,9 @@ export const updateStudent = async (req, res) => {
             updateData,
             { new: true, runValidators: true }
         )
-        .populate('courses.courseId', 'title description')
-        .populate('followingEducators.educatorId', 'name email')
-        .select('-password');
+            .populate('courses.courseId', 'title description')
+            .populate('followingEducators.educatorId', 'name email')
+            .select('-password');
 
         if (!updatedStudent) {
             return res.status(404).json({
@@ -310,7 +337,6 @@ export const updateStudent = async (req, res) => {
             message: 'Student updated successfully',
             data: updatedStudent
         });
-
     } catch (error) {
         console.error('Error updating student:', error);
         res.status(500).json({
@@ -343,7 +369,6 @@ export const deleteStudent = async (req, res) => {
             success: true,
             message: 'Student deleted successfully'
         });
-
     } catch (error) {
         console.error('Error deleting student:', error);
         res.status(500).json({
@@ -378,7 +403,6 @@ export const enrollInCourse = async (req, res) => {
                 totalCourses: student.courses.length
             }
         });
-
     } catch (error) {
         console.error('Error enrolling student in course:', error);
         res.status(500).json({
@@ -406,6 +430,12 @@ export const followEducator = async (req, res) => {
 
         await student.followEducator(educatorId);
 
+        await EducatorModel.findByIdAndUpdate(
+            educatorId,
+            { $addToSet: { followers: id } },
+            { new: true }
+        );
+
         res.status(200).json({
             success: true,
             message: 'Educator followed successfully',
@@ -413,7 +443,6 @@ export const followEducator = async (req, res) => {
                 totalFollowing: student.followingEducators.length
             }
         });
-
     } catch (error) {
         console.error('Error following educator:', error);
         res.status(500).json({
@@ -441,6 +470,12 @@ export const unfollowEducator = async (req, res) => {
 
         await student.unfollowEducator(educatorId);
 
+        await EducatorModel.findByIdAndUpdate(
+            educatorId,
+            { $pull: { followers: id } },
+            { new: true }
+        );
+
         res.status(200).json({
             success: true,
             message: 'Educator unfollowed successfully',
@@ -448,7 +483,6 @@ export const unfollowEducator = async (req, res) => {
                 totalFollowing: student.followingEducators.length
             }
         });
-
     } catch (error) {
         console.error('Error unfollowing educator:', error);
         res.status(500).json({
@@ -483,7 +517,6 @@ export const registerForWebinar = async (req, res) => {
                 totalWebinars: student.webinars.length
             }
         });
-
     } catch (error) {
         console.error('Error registering for webinar:', error);
         res.status(500).json({
@@ -515,7 +548,6 @@ export const getStudentStatistics = async (req, res) => {
             message: 'Student statistics retrieved successfully',
             data: statistics
         });
-
     } catch (error) {
         console.error('Error fetching student statistics:', error);
         res.status(500).json({
@@ -532,17 +564,17 @@ export const getStudentsBySpecialization = async (req, res) => {
         const { specialization } = req.params;
         const { page = 1, limit = 10 } = req.query;
 
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
         const students = await Student.findBySpecialization(specialization)
             .select('-password')
             .sort({ joinedAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit, 10));
 
-        const totalStudents = await Student.countDocuments({ 
-            specialization, 
-            isActive: true 
+        const totalStudents = await Student.countDocuments({
+            specialization,
+            isActive: true
         });
 
         res.status(200).json({
@@ -551,13 +583,12 @@ export const getStudentsBySpecialization = async (req, res) => {
             data: {
                 students,
                 pagination: {
-                    currentPage: parseInt(page),
-                    totalPages: Math.ceil(totalStudents / parseInt(limit)),
+                    currentPage: parseInt(page, 10),
+                    totalPages: Math.ceil(totalStudents / parseInt(limit, 10)),
                     totalStudents
                 }
             }
         });
-
     } catch (error) {
         console.error('Error fetching students by specialization:', error);
         res.status(500).json({
@@ -574,17 +605,18 @@ export const getStudentsByClass = async (req, res) => {
         const { className } = req.params;
         const { page = 1, limit = 10 } = req.query;
 
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const normalizedClass = normalizeClassInput(className);
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-        const students = await Student.findByClass(className)
+        const students = await Student.findByClass(normalizedClass)
             .select('-password')
             .sort({ joinedAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit, 10));
 
-        const totalStudents = await Student.countDocuments({ 
-            class: className, 
-            isActive: true 
+        const totalStudents = await Student.countDocuments({
+            class: normalizedClass,
+            isActive: true
         });
 
         res.status(200).json({
@@ -593,15 +625,262 @@ export const getStudentsByClass = async (req, res) => {
             data: {
                 students,
                 pagination: {
-                    currentPage: parseInt(page),
-                    totalPages: Math.ceil(totalStudents / parseInt(limit)),
+                    currentPage: parseInt(page, 10),
+                    totalPages: Math.ceil(totalStudents / parseInt(limit, 10)),
                     totalStudents
                 }
             }
         });
-
     } catch (error) {
         console.error('Error fetching students by class:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+// Get notifications for a student
+export const getStudentNotifications = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const limitParam = parseInt(req.query.limit, 10);
+        const limit = Number.isFinite(limitParam)
+            ? Math.max(1, Math.min(limitParam, MAX_NOTIFICATION_LIMIT))
+            : DEFAULT_NOTIFICATION_LIMIT;
+
+        const student = await Student.findById(id)
+            .select('followingEducators isActive')
+            .lean();
+
+        if (!student || student.isActive === false) {
+            return res.status(404).json({
+                success: false,
+                message: 'Student not found'
+            });
+        }
+
+        const followings = Array.isArray(student.followingEducators)
+            ? student.followingEducators
+            : [];
+
+        if (!followings.length) {
+            return res.status(200).json({
+                success: true,
+                message: 'No notifications available',
+                data: {
+                    notifications: [],
+                    metadata: {
+                        total: 0
+                    }
+                }
+            });
+        }
+
+        const educatorObjectIds = [];
+        const seenEducatorIds = new Set();
+        const followDateMap = new Map();
+
+        followings.forEach((follow) => {
+            if (!follow || !follow.educatorId) {
+                return;
+            }
+
+            const educatorIdStr = follow.educatorId.toString();
+
+            if (!seenEducatorIds.has(educatorIdStr)) {
+                seenEducatorIds.add(educatorIdStr);
+                educatorObjectIds.push(new mongoose.Types.ObjectId(educatorIdStr));
+            }
+
+            const followedAtValue = follow.followedAt ? new Date(follow.followedAt) : null;
+            const existingFollowDate = followDateMap.get(educatorIdStr);
+
+            if (!existingFollowDate || (followedAtValue && existingFollowDate < followedAtValue)) {
+                followDateMap.set(educatorIdStr, followedAtValue);
+            }
+        });
+
+        if (!educatorObjectIds.length) {
+            return res.status(200).json({
+                success: true,
+                message: 'No notifications available',
+                data: {
+                    notifications: [],
+                    metadata: {
+                        total: 0
+                    }
+                }
+            });
+        }
+
+        const [courses, webinars, educators] = await Promise.all([
+            Course.find({
+                educatorID: { $in: educatorObjectIds },
+                isActive: true
+            })
+                .select('title educatorID createdAt updatedAt startDate subject courseType image courseThumbnail')
+                .sort({ createdAt: -1, _id: -1 })
+                .limit(limit * 2)
+                .lean(),
+            Webinar.find({
+                educatorID: { $in: educatorObjectIds },
+                isActive: true
+            })
+                .select('title educatorID createdAt updatedAt timing specialization class image webinarLink')
+                .sort({ createdAt: -1, _id: -1 })
+                .limit(limit * 2)
+                .lean(),
+            EducatorModel.find({ _id: { $in: educatorObjectIds } })
+                .select('fullName firstName lastName username image profilePicture specialization subject yoe experience yearsExperience')
+                .lean()
+        ]);
+
+        const educatorInfoMap = new Map();
+        educators.forEach((educator) => {
+            const educatorIdStr = educator._id.toString();
+            const compositeName = [
+                educator.fullName,
+                educator.name,
+                [educator.firstName, educator.lastName].filter(Boolean).join(' ').trim()
+            ].find((value) => value && value.length > 0);
+
+            const profileImageUrl =
+                educator.image?.url ||
+                educator.image?.secure_url ||
+                educator.profilePicture ||
+                null;
+
+            educatorInfoMap.set(educatorIdStr, {
+                displayName: compositeName || educator.username || 'Educator',
+                avatar: profileImageUrl,
+                specialization: educator.specialization,
+                subject: educator.subject,
+                experience: educator.yoe ?? educator.yearsExperience ?? educator.experience ?? null
+            });
+        });
+
+        const deriveTimestamp = (document) => {
+            if (!document) {
+                return new Date();
+            }
+
+            if (document.createdAt) {
+                const createdAtDate = new Date(document.createdAt);
+                if (!Number.isNaN(createdAtDate.getTime())) {
+                    return createdAtDate;
+                }
+            }
+
+            if (document.updatedAt) {
+                const updatedAtDate = new Date(document.updatedAt);
+                if (!Number.isNaN(updatedAtDate.getTime())) {
+                    return updatedAtDate;
+                }
+            }
+
+            if (document._id && typeof document._id.getTimestamp === 'function') {
+                return document._id.getTimestamp();
+            }
+
+            return new Date();
+        };
+
+        const notifications = [];
+
+        courses.forEach((course) => {
+            const educatorId = course.educatorID ? course.educatorID.toString() : null;
+            if (!educatorId) {
+                return;
+            }
+
+            const createdAt = deriveTimestamp(course);
+            const followedAt = followDateMap.get(educatorId);
+
+            if (followedAt && createdAt < followedAt) {
+                return;
+            }
+
+                    const educatorInfo = educatorInfoMap.get(educatorId) || {};
+                    const educatorName = educatorInfo.displayName || 'Educator';
+
+            notifications.push({
+                id: `course:${course._id.toString()}`,
+                type: NOTIFICATION_ENTITY_TYPES.COURSE,
+                entityId: course._id.toString(),
+                educatorId,
+                educatorName,
+                title: course.title,
+                message: `${educatorName} published a new course`,
+                createdAt: createdAt.toISOString(),
+                link: `/student-courses/${course._id.toString()}`,
+                thumbnail: course.image || course.courseThumbnail || educatorInfo.avatar || null,
+                        metadata: {
+                            courseType: course.courseType || null,
+                            startDate: course.startDate ? new Date(course.startDate).toISOString() : null,
+                            subject: Array.isArray(course.subject) ? course.subject : [],
+                            educatorSpecialization: educatorInfo.specialization || null,
+                            educatorSubject: educatorInfo.subject || null,
+                            educatorExperience: educatorInfo.experience ?? null
+                        }
+            });
+        });
+
+        webinars.forEach((webinar) => {
+            const educatorId = webinar.educatorID ? webinar.educatorID.toString() : null;
+            if (!educatorId) {
+                return;
+            }
+
+            const createdAt = deriveTimestamp(webinar);
+            const followedAt = followDateMap.get(educatorId);
+
+            if (followedAt && createdAt < followedAt) {
+                return;
+            }
+
+                    const educatorInfo = educatorInfoMap.get(educatorId) || {};
+                    const educatorName = educatorInfo.displayName || 'Educator';
+
+            notifications.push({
+                id: `webinar:${webinar._id.toString()}`,
+                type: NOTIFICATION_ENTITY_TYPES.WEBINAR,
+                entityId: webinar._id.toString(),
+                educatorId,
+                educatorName,
+                title: webinar.title,
+                message: `${educatorName} announced a new webinar`,
+                createdAt: createdAt.toISOString(),
+                link: `/student-webinars/${webinar._id.toString()}`,
+                thumbnail: webinar.image || educatorInfo.avatar || null,
+                        metadata: {
+                            timing: webinar.timing ? new Date(webinar.timing).toISOString() : null,
+                            specialization: Array.isArray(webinar.specialization) ? webinar.specialization : [],
+                            class: Array.isArray(webinar.class) ? webinar.class : [],
+                            educatorSpecialization: educatorInfo.specialization || null,
+                            educatorSubject: educatorInfo.subject || null,
+                            educatorExperience: educatorInfo.experience ?? null
+                        }
+            });
+        });
+
+        const sortedNotifications = notifications
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, limit);
+
+        res.status(200).json({
+            success: true,
+            message: 'Notifications fetched successfully',
+            data: {
+                notifications: sortedNotifications,
+                metadata: {
+                    total: sortedNotifications.length
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching student notifications:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',
@@ -625,7 +904,6 @@ export const updatePassword = async (req, res) => {
             });
         }
 
-        // Verify current password
         const isValidPassword = await bcrypt.compare(currentPassword, student.password);
         if (!isValidPassword) {
             return res.status(400).json({
@@ -634,11 +912,9 @@ export const updatePassword = async (req, res) => {
             });
         }
 
-        // Hash new password
         const saltRounds = 10;
         const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
-        // Update password
         student.password = hashedNewPassword;
         await student.save();
 
@@ -646,7 +922,6 @@ export const updatePassword = async (req, res) => {
             success: true,
             message: 'Password updated successfully'
         });
-
     } catch (error) {
         console.error('Error updating password:', error);
         res.status(500).json({
@@ -671,5 +946,6 @@ export default {
     getStudentStatistics,
     getStudentsBySpecialization,
     getStudentsByClass,
+    getStudentNotifications,
     updatePassword
 };

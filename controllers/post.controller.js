@@ -21,8 +21,30 @@ export const createPost = async (req, res) => {
       return;
     }
 
-    const { educatorId, subject, specialization, title, description } =
-      req.body;
+    const {
+      educatorId,
+      subjects: incomingSubjects,
+      subject,
+      specializations: incomingSpecializations,
+      specialization,
+      title,
+      description,
+    } = req.body;
+
+    const subjects = Array.isArray(incomingSubjects)
+      ? incomingSubjects
+      : subject
+      ? [subject]
+      : [];
+    const specializations = Array.isArray(incomingSpecializations)
+      ? incomingSpecializations
+      : specialization
+      ? [specialization]
+      : [];
+
+    const normalizedSubjects = subjects.map((item) => item?.toLowerCase?.() ?? item);
+    const uniqueSubjects = [...new Set(normalizedSubjects)];
+    const uniqueSpecializations = [...new Set(specializations)];
 
     const educator = await Educator.findById(educatorId);
 
@@ -35,8 +57,8 @@ export const createPost = async (req, res) => {
 
     const post = await Post.create({
       educatorId,
-      subject,
-      specialization,
+      subjects: uniqueSubjects,
+      specializations: uniqueSpecializations,
       title,
       description,
     });
@@ -74,17 +96,26 @@ export const getAllPosts = async (req, res) => {
     } = req.query;
 
     const filter = {};
+    const andConditions = [];
 
     if (subject) {
-      filter.subject = subject;
+      andConditions.push({
+        $or: [{ subjects: subject }, { subject }],
+      });
     }
 
     if (specialization) {
-      filter.specialization = specialization;
+      andConditions.push({
+        $or: [{ specializations: specialization }, { specialization }],
+      });
     }
 
     if (educatorId) {
       filter.educatorId = educatorId;
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     if (search) {
@@ -200,12 +231,16 @@ export const getPostsBySubject = async (req, res) => {
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
     const [posts, totalPosts] = await Promise.all([
-      Post.find({ subject })
+      Post.find({
+        $or: [{ subjects: subject }, { subject }],
+      })
         .populate("educatorId", "fullName username slug profilePicture")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit, 10)),
-      Post.countDocuments({ subject }),
+      Post.countDocuments({
+        $or: [{ subjects: subject }, { subject }],
+      }),
     ]);
 
     res.status(200).json({
@@ -238,12 +273,16 @@ export const getPostsBySpecialization = async (req, res) => {
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
     const [posts, totalPosts] = await Promise.all([
-      Post.find({ specialization })
+      Post.find({
+        $or: [{ specializations: specialization }, { specialization }],
+      })
         .populate("educatorId", "fullName username slug profilePicture")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit, 10)),
-      Post.countDocuments({ specialization }),
+      Post.countDocuments({
+        $or: [{ specializations: specialization }, { specialization }],
+      }),
     ]);
 
     res.status(200).json({
@@ -316,7 +355,25 @@ export const updatePost = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+
+    if (Array.isArray(updateData.subjects)) {
+      updateData.subjects = [
+        ...new Set(
+          updateData.subjects.map((item) => item?.toLowerCase?.() ?? item)
+        ),
+      ];
+    } else if (updateData.subject) {
+      updateData.subjects = [updateData.subject.toLowerCase()];
+      delete updateData.subject;
+    }
+
+    if (Array.isArray(updateData.specializations)) {
+      updateData.specializations = [...new Set(updateData.specializations)];
+    } else if (updateData.specialization) {
+      updateData.specializations = [updateData.specialization];
+      delete updateData.specialization;
+    }
 
     const post = await Post.findByIdAndUpdate(id, updateData, {
       new: true,

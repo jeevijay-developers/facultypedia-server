@@ -130,15 +130,21 @@ export const getAllCourses = async (req, res) => {
 
     // Apply filters
     if (specialization) {
-      query.specialization = specialization;
+      query.specialization = { 
+        $in: Array.isArray(specialization) ? specialization : [specialization] 
+      };
     }
 
     if (subject) {
-      query.subject = subject;
+      query.subject = { 
+        $in: Array.isArray(subject) ? subject : [subject] 
+      };
     }
 
     if (className) {
-      query.class = className;
+      query.class = { 
+        $in: Array.isArray(className) ? className : [className] 
+      };
     }
 
     if (minRating) {

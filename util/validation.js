@@ -1,4 +1,11 @@
 import { body, param, query } from "express-validator";
+import { STUDY_MATERIAL_FILE_TYPES } from "./constants.js";
+import {
+  MAX_STUDY_MATERIAL_FILE_SIZE,
+  determineStudyMaterialFileType,
+  normalizeSingleValue,
+  sanitizeArrayPayload,
+} from "./studyMaterial.js";
 
 // ==================== Common Validators ====================
 
@@ -359,18 +366,104 @@ export const validateStudentId = [
 
 // ==================== Auth Validators ====================
 
+const parseValues = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[,|\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 export const educatorSignupValidation = [
-  validateFullName(),
-  validateUsernameField(),
+  body("firstName")
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage("First name must be between 2 and 50 characters"),
+  body("lastName")
+    .trim()
+    .isLength({ min: 1, max: 50 })
+    .withMessage("Last name must be between 1 and 50 characters"),
   validateEmail(),
   validatePassword(),
   validateMobileNumber(),
-  validateSpecialization(),
-  validateClass(),
-  validateSubject(),
+  body("bio")
+    .trim()
+    .notEmpty()
+    .withMessage("Bio is required")
+    .isLength({ min: 20, max: 1000 })
+    .withMessage("Bio must be between 20 and 1000 characters"),
+  body("specialization")
+    .notEmpty()
+    .withMessage("Specialization is required")
+    .custom((value) => {
+      const values = parseValues(value).map((item) => item.toUpperCase());
+      if (!values.length) {
+        throw new Error("Specialization is required");
+      }
+      const invalidValues = values.filter(
+        (item) => item && !VALID_SPECIALIZATIONS.includes(item)
+      );
+      if (invalidValues.length) {
+        throw new Error(
+          `Invalid specialization: ${invalidValues.join(", ")}`
+        );
+      }
+      return true;
+    }),
+  body("subject")
+    .notEmpty()
+    .withMessage("Subject is required")
+    .custom((value) => {
+      const values = parseValues(value).map((item) => item.toLowerCase());
+      if (!values.length) {
+        throw new Error("Subject is required");
+      }
+      const invalidValues = values.filter(
+        (item) => item && !VALID_SUBJECTS.includes(item)
+      );
+      if (invalidValues.length) {
+        throw new Error(`Invalid subject: ${invalidValues.join(", ")}`);
+      }
+      return true;
+    }),
+  body("class")
+    .optional()
+    .custom((value) => {
+      const values = parseValues(value).map((item) => item.toLowerCase());
+      const invalidValues = values.filter(
+        (item) => item && !VALID_CLASSES.includes(item)
+      );
+      if (invalidValues.length) {
+        throw new Error(`Invalid class: ${invalidValues.join(", ")}`);
+      }
+      return true;
+    }),
+  body("workExperience")
+    .optional()
+    .isArray({ max: 10 })
+    .withMessage("Work experience must be an array"),
+  body("qualification")
+    .optional()
+    .isArray({ max: 10 })
+    .withMessage("Qualification must be an array"),
+  body("socials")
+    .optional()
+    .isObject()
+    .withMessage("Social links must be an object"),
+  validateURL("introVideoLink"),
 ];
 
 export const educatorLoginValidation = [
+  validateEmail(),
+  body("password").notEmpty().withMessage("Password is required"),
+];
+
+export const studentLoginValidation = [
   validateEmail(),
   body("password").notEmpty().withMessage("Password is required"),
 ];
@@ -410,6 +503,13 @@ export const validateWebinarDescription = (isOptional = false) => {
 // Validate webinar type
 export const validateWebinarType = (isOptional = false) => {
   const validator = body("webinarType")
+    .customSanitizer((value) => {
+      if (typeof value === "string") {
+        if (value === "OTO") return "one-to-one";
+        if (value === "OTA") return "one-to-all";
+      }
+      return value;
+    })
     .isIn(VALID_WEBINAR_TYPES)
     .withMessage('Webinar type must be either "one-to-one" or "one-to-all"');
 
@@ -794,35 +894,51 @@ export const validatePostDescription = (isOptional = false) => {
   return isOptional ? validator.optional() : validator.notEmpty();
 };
 
-export const validatePostSubject = (isOptional = false) => {
-  const validator = body("subject")
-    .isString()
-    .withMessage("Subject must be a string")
-    .isIn(VALID_SUBJECTS)
-    .withMessage("Invalid subject value");
-  return isOptional ? validator.optional() : validator.notEmpty();
+export const validatePostSubjects = (isOptional = false) => {
+  const validator = body("subjects")
+    .isArray({ min: 1 })
+    .withMessage("At least one subject must be selected")
+    .custom((subjects) => {
+      const invalidSubjects = subjects.filter(
+        (subject) => !VALID_SUBJECTS.includes(subject)
+      );
+      if (invalidSubjects.length > 0) {
+        throw new Error(`Invalid subjects: ${invalidSubjects.join(", ")}`);
+      }
+      return true;
+    });
+  return isOptional ? validator.optional() : validator;
 };
 
-export const validatePostSpecialization = (isOptional = false) => {
-  const validator = body("specialization")
-    .isString()
-    .withMessage("Specialization must be a string")
-    .isIn(VALID_SPECIALIZATIONS)
-    .withMessage("Invalid specialization value");
-  return isOptional ? validator.optional() : validator.notEmpty();
+export const validatePostSpecializations = (isOptional = false) => {
+  const validator = body("specializations")
+    .isArray({ min: 1 })
+    .withMessage("At least one specialization must be selected")
+    .custom((specializations) => {
+      const invalidSpecializations = specializations.filter(
+        (specialization) => !VALID_SPECIALIZATIONS.includes(specialization)
+      );
+      if (invalidSpecializations.length > 0) {
+        throw new Error(
+          `Invalid specializations: ${invalidSpecializations.join(", ")}`
+        );
+      }
+      return true;
+    });
+  return isOptional ? validator.optional() : validator;
 };
 
 export const createPostValidation = [
   ...validateEducatorIdBody,
-  validatePostSubject(),
-  validatePostSpecialization(),
+  validatePostSubjects(),
+  validatePostSpecializations(),
   validatePostTitle(),
   validatePostDescription(),
 ];
 
 export const updatePostValidation = [
-  validatePostSubject(true),
-  validatePostSpecialization(true),
+  validatePostSubjects(true),
+  validatePostSpecializations(true),
   validatePostTitle(true),
   validatePostDescription(true),
 ];
@@ -2122,13 +2238,20 @@ export const validateCourseDescription = (isOptional = false) => {
 };
 
 // Validate course type
-export const VALID_COURSE_TYPES = ["OTO", "OTA"];
+export const VALID_COURSE_TYPES = ["one-to-one", "one-to-all"];
 
 export const validateCourseType = (isOptional = false) => {
   const validator = body("courseType")
+    .customSanitizer((value) => {
+      if (typeof value === "string") {
+        if (value === "OTO") return "one-to-one";
+        if (value === "OTA") return "one-to-all";
+      }
+      return value;
+    })
     .isIn(VALID_COURSE_TYPES)
     .withMessage(
-      "Course type must be either OTO (One-to-One) or OTA (One-to-All)"
+      "Course type must be either one-to-one or one-to-all"
     );
 
   return isOptional
@@ -2422,6 +2545,128 @@ export const validateVideoDetails = [
     .withMessage("Sequence number is required")
     .isInt({ min: 1 })
     .withMessage("Sequence number must be at least 1"),
+];
+
+// ==================== Video Validators ====================
+
+export const validateVideoTitle = (isOptional = false) => {
+  const validator = body("title")
+    .trim()
+    .isLength({ min: 3, max: 200 })
+    .withMessage("Video title must be between 3 and 200 characters");
+
+  return isOptional ? validator.optional() : validator.notEmpty();
+};
+
+const normalizeVideoLinksInput = (value) => {
+  if (typeof value === "undefined") {
+    return value;
+  }
+
+  const sanitized = sanitizeArrayPayload(value).map((entry) =>
+    typeof entry === "string" ? entry.trim() : ""
+  );
+
+  return sanitized.filter((entry) => entry.length > 0);
+};
+
+const validateVideoLinksArray = (links, { optional }) => {
+  if (typeof links === "undefined") {
+    if (optional) {
+      return true;
+    }
+    throw new Error("Links are required");
+  }
+
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error("At least one link is required");
+  }
+
+  if (links.length > 20) {
+    throw new Error("Links cannot contain more than 20 entries");
+  }
+
+  const hasInvalidLink = links.some((link) => {
+    if (typeof link !== "string" || link.length === 0 || link.length > 500) {
+      return true;
+    }
+
+    try {
+      const parsed = new URL(link);
+      return !(parsed.protocol === "http:" || parsed.protocol === "https:");
+    } catch (_error) {
+      return true;
+    }
+  });
+
+  if (hasInvalidLink) {
+    throw new Error("Each link must be a valid URL up to 500 characters");
+  }
+
+  return true;
+};
+
+export const validateVideoLinks = (isOptional = false) => [
+  body("links")
+    .customSanitizer((value, { req }) => {
+      const normalized = normalizeVideoLinksInput(value);
+      if (typeof normalized !== "undefined") {
+        req.body.links = normalized;
+      }
+      return normalized;
+    })
+    .custom((links) => validateVideoLinksArray(links, { optional: isOptional })),
+];
+
+const parseVideoCourseSpecificFlag = (value) =>
+  value === true || value === "true" || value === 1 || value === "1";
+
+export const validateVideoIsCourseSpecific = [
+  body("isCourseSpecific")
+    .optional()
+    .isBoolean()
+    .withMessage("isCourseSpecific must be a boolean")
+    .toBoolean(),
+];
+
+export const validateVideoCourseId = [
+  body("courseId")
+    .optional({ nullable: true })
+    .custom((value, { req }) => {
+      const requiresCourse = parseVideoCourseSpecificFlag(req.body?.isCourseSpecific);
+
+      if (requiresCourse && !value) {
+        throw new Error("courseId is required when isCourseSpecific is true");
+      }
+
+      if (!value) {
+        return true;
+      }
+
+      if (!/^[a-f\d]{24}$/i.test(value)) {
+        throw new Error("Invalid course ID format");
+      }
+
+      return true;
+    })
+    .customSanitizer((value, { req }) => {
+      const requiresCourse = parseVideoCourseSpecificFlag(req.body?.isCourseSpecific);
+      return requiresCourse ? value : undefined;
+    }),
+];
+
+export const createVideoValidation = [
+  validateVideoTitle(false),
+  ...validateVideoLinks(false),
+  ...validateVideoIsCourseSpecific,
+  ...validateVideoCourseId,
+];
+
+export const updateVideoValidation = [
+  validateVideoTitle(true),
+  ...validateVideoLinks(true),
+  ...validateVideoIsCourseSpecific,
+  ...validateVideoCourseId,
 ];
 
 // Validate study material details
@@ -2766,7 +3011,210 @@ export const rateTestSeriesValidation = [
   ...validateRating,
 ];
 
+// ==================== Study Material Validators ====================
+
+export const validateStudyMaterialEducatorId = [
+  body("educatorID")
+    .notEmpty()
+    .withMessage("Educator ID is required")
+    .isMongoId()
+    .withMessage("Invalid educator ID format"),
+];
+
+export const validateStudyMaterialTitle = (isOptional = false) => {
+  const validator = body("title")
+      .customSanitizer((value, { req }) => {
+        if (
+          (value === null || typeof value === "undefined" ||
+            (Array.isArray(value) && value.length === 0)) &&
+          req?.body
+        ) {
+          const fallbackKey = Object.keys(req.body).find(
+            (key) => key !== "title" && key.toLowerCase() === "title"
+          );
+
+          if (fallbackKey) {
+            value = req.body[fallbackKey];
+            req.body.title = value;
+            delete req.body[fallbackKey];
+          }
+        }
+
+        return normalizeSingleValue(value);
+      })
+    .trim()
+    .isLength({ min: 3, max: 200 })
+    .withMessage("Title must be between 3 and 200 characters");
+
+  return isOptional
+    ? validator.optional()
+    : validator.notEmpty().withMessage("Title is required");
+};
+
+export const validateStudyMaterialDescription = (isOptional = true) => {
+  const validator = body("description")
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage("Description cannot exceed 1000 characters");
+
+  return isOptional ? validator.optional() : validator;
+};
+
+export const validateStudyMaterialDocs = (isOptional = false) =>
+  body("uploadedDocs")
+    .custom((_, { req }) => {
+      const files = req.files || [];
+
+      if (!files.length) {
+        if (isOptional) {
+          return true;
+        }
+        throw new Error("At least one study material file must be uploaded");
+      }
+
+      files.forEach((file, index) => {
+        if (!file || typeof file !== "object") {
+          throw new Error(`File payload missing at index ${index}`);
+        }
+
+        const hasBinaryPayload = Boolean(file.buffer?.length);
+        const hasUploadedUrl = Boolean(file.path || file.secure_url);
+        const hasFileName = Boolean(file.originalname || file.filename);
+
+        if ((!hasBinaryPayload && !hasUploadedUrl) || !hasFileName) {
+          throw new Error(`Invalid file payload at index ${index}`);
+        }
+
+        const displayName =
+          file.originalname || file.filename || `study-material-${index + 1}`;
+
+        const sizeInBytes =
+          typeof file.size === "number"
+            ? file.size
+            : typeof file.bytes === "number"
+            ? file.bytes
+            : file.buffer?.length || 0;
+
+        if (sizeInBytes > MAX_STUDY_MATERIAL_FILE_SIZE) {
+          const sizeInMb = Math.round(
+            (MAX_STUDY_MATERIAL_FILE_SIZE / (1024 * 1024)) * 10
+          ) / 10;
+          throw new Error(
+            `${displayName} exceeds the allowed ${sizeInMb} MB limit`
+          );
+        }
+
+        const detectedType = determineStudyMaterialFileType(
+          file.originalname || file.filename,
+          file.mimetype
+        );
+
+        if (!STUDY_MATERIAL_FILE_TYPES.includes(detectedType)) {
+          throw new Error(
+            `${displayName} has an unsupported file type`
+          );
+        }
+
+        if (detectedType !== "PDF") {
+          throw new Error(`${displayName} must be a PDF document`);
+        }
+      });
+
+      return true;
+    });
+
+export const validateStudyMaterialTags = [
+  body("tags")
+    .optional()
+    .customSanitizer(sanitizeArrayPayload)
+    .isArray({ max: 25 })
+    .withMessage("Tags must be an array with at most 25 items")
+    .custom((tags) => {
+      tags.forEach((tag, index) => {
+        if (typeof tag !== "string" || tag.trim().length === 0) {
+          throw new Error(`Tag at index ${index} must be a non-empty string`);
+        }
+      });
+      return true;
+    }),
+];
+
+export const validateStudyMaterialIsCourseSpecific = [
+  body("isCourseSpecific")
+    .optional()
+    .isBoolean()
+    .withMessage("isCourseSpecific must be a boolean")
+    .toBoolean(),
+];
+
+const studyMaterialRequiresCourse = (req) => {
+  const flag = req.body.isCourseSpecific;
+  return flag === true || flag === "true" || flag === 1 || flag === "1";
+};
+
+export const validateStudyMaterialCourseId = [
+  body("courseId")
+    .custom((value, { req }) => {
+      if (studyMaterialRequiresCourse(req) && !value) {
+        throw new Error(
+          "courseId is required when the study material is course-specific"
+        );
+      }
+      return true;
+    }),
+  body("courseId")
+    .optional({ nullable: true })
+    .isMongoId()
+    .withMessage("Invalid course ID format"),
+];
+
+const objectIdRegex = /^[a-f\d]{24}$/i;
+
+export const validateStudyMaterialRemoveDocIds = [
+  body("removeDocIds")
+    .optional()
+    .customSanitizer(sanitizeArrayPayload)
+    .isArray()
+    .withMessage("removeDocIds must be an array")
+    .custom((ids) => {
+      ids.forEach((id, index) => {
+        if (!objectIdRegex.test(id)) {
+          throw new Error(
+            `removeDocIds entry at index ${index} must be a valid document identifier`
+          );
+        }
+      });
+      return true;
+    }),
+];
+
+export const createStudyMaterialValidation = [
+  ...validateStudyMaterialEducatorId,
+  validateStudyMaterialTitle(false),
+  validateStudyMaterialDescription(true),
+  validateStudyMaterialDocs(false),
+  ...validateStudyMaterialTags,
+  ...validateStudyMaterialIsCourseSpecific,
+  ...validateStudyMaterialCourseId,
+];
+
+export const updateStudyMaterialValidation = [
+  validateStudyMaterialTitle(true),
+  validateStudyMaterialDescription(true),
+  validateStudyMaterialDocs(true),
+  ...validateStudyMaterialTags,
+  ...validateStudyMaterialIsCourseSpecific,
+  ...validateStudyMaterialCourseId,
+  ...validateStudyMaterialRemoveDocIds,
+  ...validateStudyMaterialEducatorId.map((validator) => validator.optional()),
+];
+
 // ==================== Live Class Validations ====================
+
+const shouldRequireCourseId = (_value, { req }) => {
+  const flag = req.body.isCourseSpecific;
+  return flag === true || flag === "true" || flag === 1 || flag === "1";
+};
 
 // Educator ID validation for live class
 export const validateLiveClassEducatorId = [
@@ -2780,7 +3228,7 @@ export const validateLiveClassEducatorId = [
 // Course ID validation for live class (when isCourseSpecific is true)
 export const validateLiveClassCourseId = [
   body("assignInCourse")
-    .if(body("isCourseSpecific").equals("true"))
+    .if(shouldRequireCourseId)
     .notEmpty()
     .withMessage("Course ID is required when live class is course-specific")
     .isMongoId()
@@ -2810,29 +3258,49 @@ export const validateLiveClassFee = (optional = false) => {
 // Subject validation for live class
 export const validateLiveClassSubject = (optional = false) => {
   const validator = body("subject")
-    .notEmpty()
-    .withMessage("Subject is required")
-    .isIn(["Physics", "Chemistry", "Mathematics", "Biology"])
-    .withMessage("Invalid subject. Must be one of: Physics, Chemistry, Mathematics, Biology");
-  
-  if (optional) {
-    return validator.optional();
-  }
-  return validator;
+    .custom((value, { req }) => {
+      const normalized = (Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
+        .map((entry) => (typeof entry === "string" ? entry.trim().toLowerCase() : ""))
+        .filter((entry) => Boolean(entry));
+
+      if (!normalized.length) {
+        throw new Error("At least one subject is required");
+      }
+
+      const invalid = normalized.filter((entry) => !VALID_SUBJECTS.includes(entry));
+      if (invalid.length) {
+        throw new Error(`Invalid subject(s): ${invalid.join(", ")}`);
+      }
+
+      req.body.subject = normalized;
+      return true;
+    });
+
+  return optional ? validator.optional() : validator;
 };
 
 // Live class specification validation
 export const validateLiveClassSpecification = (optional = false) => {
   const validator = body("liveClassSpecification")
-    .notEmpty()
-    .withMessage("Live class specification is required")
-    .isIn(VALID_SPECIALIZATIONS)
-    .withMessage(`Invalid specification. Must be one of: ${VALID_SPECIALIZATIONS.join(", ")}`);
-  
-  if (optional) {
-    return validator.optional();
-  }
-  return validator;
+    .custom((value, { req }) => {
+      const normalized = (Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
+        .map((entry) => (typeof entry === "string" ? entry.trim().toUpperCase() : ""))
+        .filter((entry) => Boolean(entry));
+
+      if (!normalized.length) {
+        throw new Error("At least one specialization is required");
+      }
+
+      const invalid = normalized.filter((entry) => !VALID_SPECIALIZATIONS.includes(entry));
+      if (invalid.length) {
+        throw new Error(`Invalid specialization(s): ${invalid.join(", ")}`);
+      }
+
+      req.body.liveClassSpecification = normalized;
+      return true;
+    });
+
+  return optional ? validator.optional() : validator;
 };
 
 // Intro video validation for live class
@@ -2901,22 +3369,6 @@ export const validateClassDuration = (optional = false) => {
   return validator;
 };
 
-// Live class ID validation
-export const validateLiveClassID = (optional = false) => {
-  const validator = body("liveClassID")
-    .notEmpty()
-    .withMessage("Live class ID is required")
-    .isLength({ min: 3, max: 50 })
-    .withMessage("Live class ID must be between 3 and 50 characters")
-    .matches(/^[A-Z0-9-]+$/)
-    .withMessage("Live class ID must contain only uppercase letters, numbers, and hyphens");
-  
-  if (optional) {
-    return validator.optional();
-  }
-  return validator;
-};
-
 // Live class title validation
 export const validateLiveClassTitle = (optional = false) => {
   const validator = body("liveClassTitle")
@@ -2936,13 +3388,18 @@ export const validateClassArray = (optional = false) => {
   const validator = body("class")
     .notEmpty()
     .withMessage("Class is required")
-    .isArray()
-    .withMessage("Class must be an array")
-    .custom((value) => {
-      const validClasses = ["Class 6th", "Class 7th", "Class 8th", "Class 9th", "Class 10th", "Class 11th", "Class 12th", "Dropper"];
-      if (!value.every(c => validClasses.includes(c))) {
-        throw new Error(`Invalid class. Must be one of: ${validClasses.join(", ")}`);
+    .isArray({ min: 1 })
+    .withMessage("Class must be a non-empty array")
+    .custom((value, { req }) => {
+      const normalized = value.map((entry) =>
+        typeof entry === "string" ? entry.trim().toLowerCase() : entry
+      );
+      if (!normalized.every((c) => VALID_CLASSES.includes(c))) {
+        throw new Error(
+          `Invalid class. Must be one of: ${VALID_CLASSES.join(", ")}`
+        );
       }
+      req.body.class = normalized;
       return true;
     });
   
@@ -2987,6 +3444,7 @@ export const validateLiveClassMaxStudents = (optional = true) => {
 export const validateLiveClassIsCourseSpecific = [
   body("isCourseSpecific")
     .optional()
+    .toBoolean()
     .isBoolean()
     .withMessage("isCourseSpecific must be a boolean"),
 ];
@@ -3024,7 +3482,6 @@ export const validateRecordingURL = [
 
 // Complete validation array for creating live class
 export const createLiveClassValidation = [
-  validateLiveClassID(false),
   validateLiveClassEducatorId,
   validateLiveClassCourseId,
   validateLiveClassFee(false),

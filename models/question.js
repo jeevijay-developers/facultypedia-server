@@ -182,12 +182,7 @@ questionSchema.statics.findByTags = function (tagsArray) {
 
 // Virtuals
 questionSchema.virtual("testCount").get(function () {
-  return this.tests.length;
-});
-
-// Virtual to get test count
-questionSchema.virtual("testCount").get(function () {
-  return this.tests.length;
+  return this.tests?.length || 0;
 });
 
 export default mongoose.model("Question", questionSchema);

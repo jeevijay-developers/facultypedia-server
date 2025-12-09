@@ -17,7 +17,6 @@ export const createLiveClass = async (req, res) => {
         }
 
         const {
-            liveClassID,
             educatorID,
             isCourseSpecific,
             assignInCourse,
@@ -35,7 +34,6 @@ export const createLiveClass = async (req, res) => {
 
         // Create new live class
         const newLiveClass = new LiveClass({
-            liveClassID: liveClassID ? liveClassID.toUpperCase() : undefined,
             educatorID,
             isCourseSpecific,
             assignInCourse: isCourseSpecific ? assignInCourse : undefined,
@@ -89,10 +87,24 @@ export const getAllLiveClasses = async (req, res) => {
         const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
         const skip = (pageNum - 1) * limitNum;
 
+        const normalizeSubjectFilter = (value) => {
+            if (Array.isArray(value)) {
+                return { $in: value.map((entry) => entry.toLowerCase()) };
+            }
+            return typeof value === 'string' ? value.toLowerCase() : value;
+        };
+
+        const normalizeSpecificationFilter = (value) => {
+            if (Array.isArray(value)) {
+                return { $in: value.map((entry) => entry.toUpperCase()) };
+            }
+            return typeof value === 'string' ? value.toUpperCase() : value;
+        };
+
         // Build filter object
         const filter = {};
-        if (subject) filter.subject = subject;
-        if (specification) filter.liveClassSpecification = specification;
+        if (subject) filter.subject = normalizeSubjectFilter(subject);
+        if (specification) filter.liveClassSpecification = normalizeSpecificationFilter(specification);
         if (classFilter) filter.class = { $in: Array.isArray(classFilter) ? classFilter : [classFilter] };
         if (educatorID) filter.educatorID = educatorID;
         if (isCourseSpecific !== undefined) filter.isCourseSpecific = isCourseSpecific === 'true';
@@ -172,38 +184,6 @@ export const getLiveClassBySlug = async (req, res) => {
         const { slug } = req.params;
 
         const liveClass = await LiveClass.findOne({ slug })
-            .populate('educatorID', 'name email')
-            .populate('assignInCourse', 'name')
-            .populate('enrolledStudents.studentId', 'name email');
-
-        if (!liveClass) {
-            return res.status(404).json({
-                success: false,
-                message: 'Live class not found'
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: 'Live class retrieved successfully',
-            data: liveClass
-        });
-    } catch (error) {
-        console.error('Error fetching live class:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error fetching live class',
-            error: error.message
-        });
-    }
-};
-
-// Get live class by liveClassID
-export const getLiveClassByLiveClassID = async (req, res) => {
-    try {
-        const { liveClassID } = req.params;
-
-        const liveClass = await LiveClass.findByLiveClassID(liveClassID)
             .populate('educatorID', 'name email')
             .populate('assignInCourse', 'name')
             .populate('enrolledStudents.studentId', 'name email');
@@ -486,8 +466,22 @@ export const getUpcomingLiveClasses = async (req, res) => {
             isCompleted: false
         };
 
-        if (specification) filter.liveClassSpecification = specification;
-        if (subject) filter.subject = subject;
+        const normalizeSubjectFilter = (value) => {
+            if (Array.isArray(value)) {
+                return { $in: value.map((entry) => entry.toLowerCase()) };
+            }
+            return typeof value === 'string' ? value.toLowerCase() : value;
+        };
+
+        const normalizeSpecificationFilter = (value) => {
+            if (Array.isArray(value)) {
+                return { $in: value.map((entry) => entry.toUpperCase()) };
+            }
+            return typeof value === 'string' ? value.toUpperCase() : value;
+        };
+
+        if (specification) filter.liveClassSpecification = normalizeSpecificationFilter(specification);
+        if (subject) filter.subject = normalizeSubjectFilter(subject);
 
         const totalLiveClasses = await LiveClass.countDocuments(filter);
         const liveClasses = await LiveClass.find(filter)

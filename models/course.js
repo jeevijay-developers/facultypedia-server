@@ -16,8 +16,13 @@ const courseSchema = new mongoose.Schema({
   courseType: {
     type: String,
     required: true,
-    enum: ["OTO", "OTA"], // One-to-One, One-to-All
-    default: "OTA",
+    enum: ["one-to-one", "one-to-all"],
+    default: "one-to-all",
+    set: (value) => {
+      if (value === "OTO") return "one-to-one";
+      if (value === "OTA") return "one-to-all";
+      return value;
+    },
   },
   educatorID: {
     type: mongoose.Schema.Types.ObjectId,
@@ -270,17 +275,32 @@ courseSchema.statics.findByEducator = function (educatorId) {
 
 // Static method to find courses by specialization
 courseSchema.statics.findBySpecialization = function (specialization) {
-  return this.find({ specialization: specialization, isActive: true });
+  return this.find({ 
+    specialization: { 
+      $in: Array.isArray(specialization) ? specialization : [specialization] 
+    }, 
+    isActive: true 
+  });
 };
 
 // Static method to find courses by subject
 courseSchema.statics.findBySubject = function (subject) {
-  return this.find({ subject: subject, isActive: true });
+  return this.find({ 
+    subject: { 
+      $in: Array.isArray(subject) ? subject : [subject] 
+    }, 
+    isActive: true 
+  });
 };
 
 // Static method to find courses by class
 courseSchema.statics.findByClass = function (className) {
-  return this.find({ class: className, isActive: true });
+  return this.find({ 
+    class: { 
+      $in: Array.isArray(className) ? className : [className] 
+    }, 
+    isActive: true 
+  });
 };
 
 // Static method to find courses by minimum rating
@@ -317,27 +337,37 @@ courseSchema.statics.findUpcoming = function () {
 
 // Virtual to get enrolled student count
 courseSchema.virtual("enrolledCount").get(function () {
-  return this.enrolledStudents.length;
+  return Array.isArray(this.enrolledStudents) ? this.enrolledStudents.length : 0;
 });
 
 // Virtual to get purchase count
 courseSchema.virtual("purchaseCount").get(function () {
-  return this.purchase.length;
+  return Array.isArray(this.purchase) ? this.purchase.length : 0;
 });
 
 // Virtual to check if course is full
 courseSchema.virtual("isFull").get(function () {
-  return this.enrolledStudents.length >= this.maxStudents;
+  const enrolledCount = Array.isArray(this.enrolledStudents)
+    ? this.enrolledStudents.length
+    : 0;
+  const seatLimit = typeof this.maxStudents === "number" ? this.maxStudents : 0;
+  return seatLimit > 0 && enrolledCount >= seatLimit;
 });
 
 // Virtual to get seats available
 courseSchema.virtual("seatsAvailable").get(function () {
-  return this.maxStudents - this.enrolledStudents.length;
+  const seatLimit = typeof this.maxStudents === "number" ? this.maxStudents : 0;
+  const enrolledCount = Array.isArray(this.enrolledStudents)
+    ? this.enrolledStudents.length
+    : 0;
+  return Math.max(0, seatLimit - enrolledCount);
 });
 
 // Virtual to calculate discounted price
 courseSchema.virtual("discountedPrice").get(function () {
-  return this.fees - (this.fees * this.discount) / 100;
+  const baseFees = typeof this.fees === "number" ? this.fees : 0;
+  const discountPercent = typeof this.discount === "number" ? this.discount : 0;
+  return baseFees - (baseFees * discountPercent) / 100;
 });
 
 // Virtual to check if course is ongoing
@@ -363,17 +393,17 @@ courseSchema.virtual("isAccessValid").get(function () {
 
 // Virtual to get total video count
 courseSchema.virtual("videoCount").get(function () {
-  return this.videos.length;
+  return Array.isArray(this.videos) ? this.videos.length : 0;
 });
 
 // Virtual to get total live class count
 courseSchema.virtual("liveClassCount").get(function () {
-  return this.liveClass.length;
+  return Array.isArray(this.liveClass) ? this.liveClass.length : 0;
 });
 
 // Virtual to get total test series count
 courseSchema.virtual("testSeriesCount").get(function () {
-  return this.testSeries.length;
+  return Array.isArray(this.testSeries) ? this.testSeries.length : 0;
 });
 
 // Ensure virtual fields are included in JSON output

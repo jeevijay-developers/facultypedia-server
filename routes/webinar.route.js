@@ -39,7 +39,6 @@ import {
 const createWebinarValidation = [
   validateWebinarTitle(),
   validateWebinarDescription(),
-  validateWebinarType(),
   validateWebinarTiming(),
   validateSubject(),
   validateWebinarFees(),

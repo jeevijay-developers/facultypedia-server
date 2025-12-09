@@ -18,6 +18,11 @@ const webinarSchema = new mongoose.Schema({
     required: true,
     enum: ["one-to-one", "one-to-all"],
     default: "one-to-all",
+    set: (value) => {
+      if (value === "OTO") return "one-to-one";
+      if (value === "OTA") return "one-to-all";
+      return value;
+    },
   },
   timing: {
     type: Date,

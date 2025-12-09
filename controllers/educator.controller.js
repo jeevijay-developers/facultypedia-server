@@ -111,12 +111,22 @@ export const getEducatorById = async (req, res) => {
 
     const educator = await Educator.findById(id)
       .select("-password")
-      .populate("followers", "fullName email profilePicture")
-      .populate("courses", "title description slug fees")
-      .populate("webinars", "title description slug timing fees")
-      .populate("testSeries", "title description slug")
-      .populate("tests", "title totalMarks duration")
-      .populate("questions", "question subject difficulty");
+      .populate("followers", "name fullName email profilePicture image")
+      .populate({
+        path: "courses",
+        select: "title description slug fees image duration",
+        options: { strictPopulate: false }
+      })
+      .populate({
+        path: "webinars",
+        select: "title description slug scheduledDate duration fees",
+        options: { strictPopulate: false }
+      })
+      .populate({
+        path: "testSeries",
+        select: "title description slug totalTests",
+        options: { strictPopulate: false }
+      });
 
     if (!educator) {
       return res.status(404).json({
@@ -128,7 +138,7 @@ export const getEducatorById = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Educator retrieved successfully",
-      data: educator,
+      data: { educator },
     });
   } catch (error) {
     console.error("Error fetching educator:", error);

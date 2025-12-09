@@ -1,13 +1,12 @@
 {
   "demoLiveClassData": [
     {
-      "liveClassID": "LC001",
       "educatorID": "64a7f8d9e1234567890abcde",
       "isCourseSpecific": false,
       "assignInCourse": null,
       "liveClassesFee": 500,
-      "subject": "Physics",
-      "liveClassSpecification": "IIT-JEE",
+      "subject": ["physics"],
+      "liveClassSpecification": ["IIT-JEE"],
       "introVideo": "https://example.com/videos/physics-intro.mp4",
       "classTiming": "2024-11-25T09:00:00Z",
       "classDuration": "60",
@@ -17,13 +16,12 @@
       "maxStudents": 50
     },
     {
-      "liveClassID": "LC002",
       "educatorID": "64a7f8d9e1234567890abcdf",
       "isCourseSpecific": true,
       "assignInCourse": "64b8g9e0f1234567890abcde",
       "liveClassesFee": 300,
-      "subject": "Chemistry",
-      "liveClassSpecification": "NEET",
+      "subject": ["chemistry"],
+      "liveClassSpecification": ["NEET"],
       "introVideo": "https://example.com/videos/chemistry-intro.mp4",
       "classTiming": "2024-11-26T10:30:00Z",
       "classDuration": "90",
@@ -33,13 +31,12 @@
       "maxStudents": 40
     },
     {
-      "liveClassID": "LC003",
       "educatorID": "64a7f8d9e1234567890abce0",
       "isCourseSpecific": false,
       "assignInCourse": null,
       "liveClassesFee": 250,
-      "subject": "Mathematics",
-      "liveClassSpecification": "CBSE",
+      "subject": ["mathematics"],
+      "liveClassSpecification": ["CBSE"],
       "introVideo": "https://example.com/videos/math-intro.mp4",
       "classTiming": "2024-11-27T14:00:00Z",
       "classDuration": "75",
@@ -49,13 +46,12 @@
       "maxStudents": 60
     },
     {
-      "liveClassID": "LC004",
       "educatorID": "64a7f8d9e1234567890abce1",
       "isCourseSpecific": true,
       "assignInCourse": "64c9h0f1g1234567890abcef",
       "liveClassesFee": 400,
-      "subject": "Biology",
-      "liveClassSpecification": "NEET",
+      "subject": ["biology"],
+      "liveClassSpecification": ["NEET"],
       "introVideo": "https://example.com/videos/biology-intro.mp4",
       "classTiming": "2024-11-28T11:00:00Z",
       "classDuration": "120",
@@ -65,13 +61,12 @@
       "maxStudents": 45
     },
     {
-      "liveClassID": "/* LC005 */",
       "educatorID": "64a7f8d9e1234567890abce2",
       "isCourseSpecific": false,
       "assignInCourse": null,
       "liveClassesFee": 600,
-      "subject": "Physics",
-      "liveClassSpecification": "IIT-JEE",
+      "subject": ["physics"],
+      "liveClassSpecification": ["IIT-JEE"],
       "introVideo": "https://example.com/videos/advanced-physics.mp4",
       "classTiming": "2024-11-29T16:30:00Z",
       "classDuration": "90",
@@ -81,13 +76,12 @@
       "maxStudents": 35
     },
     {
-      "liveClassID": "LC006",
       "educatorID": "64a7f8d9e1234567890abcde",
       "isCourseSpecific": false,
       "assignInCourse": null,
       "liveClassesFee": 350,
-      "subject": "Chemistry",
-      "liveClassSpecification": "CBSE",
+      "subject": ["chemistry"],
+      "liveClassSpecification": ["CBSE"],
       "introVideo": "https://example.com/videos/inorganic-chemistry.mp4",
       "classTiming": "2024-11-30T13:15:00Z",
       "classDuration": "60",
@@ -97,13 +91,12 @@
       "maxStudents": 50
     },
     {
-      "liveClassID": "LC007",
       "educatorID": "64a7f8d9e1234567890abce3",
       "isCourseSpecific": true,
       "assignInCourse": "64d0i1g2h1234567890abcfg",
       "liveClassesFee": 280,
-      "subject": "Mathematics",
-      "liveClassSpecification": "NEET",
+      "subject": ["mathematics"],
+      "liveClassSpecification": ["NEET"],
       "introVideo": "https://example.com/videos/statistics-math.mp4",
       "classTiming": "2024-12-01T10:00:00Z",
       "classDuration": "85",
@@ -113,13 +106,12 @@
       "maxStudents": 55
     },
     {
-      "liveClassID": "LC008",
       "educatorID": "64a7f8d9e1234567890abce4",
       "isCourseSpecific": false,
       "assignInCourse": null,
       "liveClassesFee": 320,
-      "subject": "Biology",
-      "liveClassSpecification": "CBSE",
+      "subject": ["biology"],
+      "liveClassSpecification": ["CBSE"],
       "introVideo": "https://example.com/videos/ecology.mp4",
       "classTiming": "2024-12-02T15:45:00Z",
       "classDuration": "75",
