@@ -1,5 +1,6 @@
 import Webinar from "../models/webinar.js";
 import { validationResult } from "express-validator";
+import notificationService from "../services/notification.service.js";
 
 // Create a new webinar
 export const createWebinar = async (req, res) => {
@@ -66,6 +67,20 @@ export const createWebinar = async (req, res) => {
     });
 
     const savedWebinar = await newWebinar.save();
+
+    // Notify all followers of the educator
+    try {
+      await notificationService.notifyFollowers(educatorID, "webinar", {
+        _id: savedWebinar._id,
+        title: savedWebinar.title,
+        slug: savedWebinar.slug,
+        timing: savedWebinar.timing,
+        scheduledDate: savedWebinar.timing,
+      });
+    } catch (notificationError) {
+      console.error("Error sending notifications:", notificationError);
+      // Don't fail the webinar creation if notification fails
+    }
 
     res.status(201).json({
       success: true,

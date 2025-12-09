@@ -1,6 +1,7 @@
 import { validationResult } from "express-validator";
 import Post from "../models/post.js";
 import Educator from "../models/educator.js";
+import notificationService from "../services/notification.service.js";
 
 const handleValidation = (req, res) => {
   const errors = validationResult(req);
@@ -21,7 +22,7 @@ export const createPost = async (req, res) => {
       return;
     }
 
-    const { educatorId, subject, specialization, title, description } =
+    const { educatorId, subjects, specializations, title, description } =
       req.body;
 
     const educator = await Educator.findById(educatorId);
@@ -35,8 +36,8 @@ export const createPost = async (req, res) => {
 
     const post = await Post.create({
       educatorId,
-      subject,
-      specialization,
+      subject: subjects,
+      specialization: specializations,
       title,
       description,
     });
@@ -44,6 +45,18 @@ export const createPost = async (req, res) => {
     await Educator.findByIdAndUpdate(educatorId, {
       $addToSet: { posts: post._id },
     });
+
+    // Notify all followers of the educator
+    try {
+      await notificationService.notifyFollowers(educatorId, "post", {
+        _id: post._id,
+        title: post.title,
+        slug: post._id.toString(), // Posts might not have slugs
+      });
+    } catch (notificationError) {
+      console.error("Error sending notifications:", notificationError);
+      // Don't fail the post creation if notification fails
+    }
 
     res.status(201).json({
       success: true,

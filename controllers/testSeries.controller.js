@@ -2,6 +2,7 @@ import { validationResult } from "express-validator";
 import TestSeries from "../models/testSeries.js";
 import Course from "../models/course.js";
 import mongoose from "mongoose";
+import notificationService from "../services/notification.service.js";
 
 // ==================== CRUD Operations ====================
 
@@ -95,6 +96,18 @@ export const createTestSeries = async (req, res) => {
       });
     } catch (error) {
       console.error("Error updating educator testSeries array:", error);
+    }
+
+    // Notify all followers of the educator
+    try {
+      await notificationService.notifyFollowers(educatorId, "test_series", {
+        _id: testSeries._id,
+        title: testSeries.title,
+        slug: testSeries.slug,
+      });
+    } catch (notificationError) {
+      console.error("Error sending notifications:", notificationError);
+      // Don't fail the test series creation if notification fails
     }
 
     res.status(201).json({

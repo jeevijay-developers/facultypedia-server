@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
 import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import cors from "cors";
 import questionRoutes from "./routes/questions.route.js";
 import webinarRoutes from "./routes/webinar.route.js";
@@ -14,16 +16,32 @@ import paymentRoutes from "./routes/payment.route.js";
 import educatorUpdateRoutes from "./routes/educatorUpdate.route.js";
 import liveClassRoutes from "./routes/liveClass.route.js";
 import uploadRoutes from "./routes/upload.route.js";
+import notificationRoutes from "./routes/notification.route.js";
 import connectDB from "./util/DBConnect.js";
+import initializeNotificationSocket from "./sockets/notification.socket.js";
 dotenv.config();
 
 const APP = express();
+const server = createServer(APP);
 
-// Middleware
+// Initialize Socket.io with CORS configuration
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_DASHBOARD_URL,
   process.env.NEXT_PUBLIC_WEB_URL,
 ].filter(Boolean);
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins.length > 0 ? allowedOrigins : "*",
+    credentials: true,
+    methods: ["GET", "POST"],
+  },
+});
+
+// Initialize notification socket handlers
+initializeNotificationSocket(io);
+
+// Middleware
 APP.use(
   cors({
     origin: allowedOrigins.length > 0 ? allowedOrigins : false,
@@ -55,6 +73,7 @@ APP.use("/api/posts", postRoutes);
 APP.use("/api/payments", paymentRoutes);
 APP.use("/api/educator-update", educatorUpdateRoutes);
 APP.use("/api/upload", uploadRoutes);
+APP.use("/api/notifications", notificationRoutes);
 
 const PORT = process.env.PORT || 5000;
 
@@ -82,7 +101,8 @@ APP.get("/debug/test-count", async (req, res) => {
 });
 
 // Server starting
-APP.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server started on http://localhost:${PORT}`);
+  console.log(`WebSocket server ready at ws://localhost:${PORT}`);
   connectDB();
 });

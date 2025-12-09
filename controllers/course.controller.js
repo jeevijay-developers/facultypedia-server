@@ -1,5 +1,6 @@
 import { validationResult } from "express-validator";
 import Course from "../models/course.js";
+import notificationService from "../services/notification.service.js";
 
 // ==================== CRUD Operations ====================
 
@@ -97,6 +98,18 @@ export const createCourse = async (req, res) => {
     course.slug = course.generateSlug();
 
     await course.save();
+
+    // Notify all followers of the educator
+    try {
+      await notificationService.notifyFollowers(educatorID, "course", {
+        _id: course._id,
+        title: course.title,
+        slug: course.slug,
+      });
+    } catch (notificationError) {
+      console.error("Error sending notifications:", notificationError);
+      // Don't fail the course creation if notification fails
+    }
 
     res.status(201).json({
       message: "Course created successfully",

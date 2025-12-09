@@ -10,26 +10,36 @@ const postSchema = new Schema(
       required: true,
       index: true,
     },
-    subject: {
-      type: String,
-      enum: [
-        "biology",
-        "physics",
-        "mathematics",
-        "chemistry",
-        "english",
-        "hindi",
-      ],
-      required: true,
-      lowercase: true,
-      trim: true,
-    },
-    specialization: {
-      type: String,
-      enum: ["IIT-JEE", "NEET", "CBSE"],
-      required: true,
-      trim: true,
-    },
+    subject: [
+      {
+        type: String,
+        enum: {
+          values: [
+            "biology",
+            "physics",
+            "mathematics",
+            "chemistry",
+            "english",
+            "hindi",
+          ],
+          message: "{VALUE} is not a valid subject",
+        },
+        required: true,
+        lowercase: true,
+        trim: true,
+      },
+    ],
+    specialization: [
+      {
+        type: String,
+        enum: {
+          values: ["IIT-JEE", "NEET", "CBSE"],
+          message: "{VALUE} is not a valid specialization",
+        },
+        required: true,
+        trim: true,
+      },
+    ],
     title: {
       type: String,
       required: true,

@@ -795,21 +795,37 @@ export const validatePostDescription = (isOptional = false) => {
 };
 
 export const validatePostSubject = (isOptional = false) => {
-  const validator = body("subject")
-    .isString()
-    .withMessage("Subject must be a string")
-    .isIn(VALID_SUBJECTS)
-    .withMessage("Invalid subject value");
-  return isOptional ? validator.optional() : validator.notEmpty();
+  const validator = body("subjects")
+    .isArray({ min: 1 })
+    .withMessage("At least one subject must be selected")
+    .custom((subjects) => {
+      const invalidSubjects = subjects.filter(
+        (subject) => !VALID_SUBJECTS.includes(subject)
+      );
+      if (invalidSubjects.length > 0) {
+        throw new Error(`Invalid subjects: ${invalidSubjects.join(", ")}`);
+      }
+      return true;
+    });
+  return isOptional ? validator.optional() : validator;
 };
 
 export const validatePostSpecialization = (isOptional = false) => {
-  const validator = body("specialization")
-    .isString()
-    .withMessage("Specialization must be a string")
-    .isIn(VALID_SPECIALIZATIONS)
-    .withMessage("Invalid specialization value");
-  return isOptional ? validator.optional() : validator.notEmpty();
+  const validator = body("specializations")
+    .isArray({ min: 1 })
+    .withMessage("At least one specialization must be selected")
+    .custom((specializations) => {
+      const invalidSpecializations = specializations.filter(
+        (spec) => !VALID_SPECIALIZATIONS.includes(spec)
+      );
+      if (invalidSpecializations.length > 0) {
+        throw new Error(
+          `Invalid specializations: ${invalidSpecializations.join(", ")}`
+        );
+      }
+      return true;
+    });
+  return isOptional ? validator.optional() : validator;
 };
 
 export const createPostValidation = [
@@ -2824,13 +2840,27 @@ export const validateLiveClassFee = (optional = false) => {
 
 // Subject validation for live class
 export const validateLiveClassSubject = (optional = false) => {
-  const validator = body("subject")
+  const validator = body("subjects")
     .notEmpty()
-    .withMessage("Subject is required")
-    .isIn(["Physics", "Chemistry", "Mathematics", "Biology"])
-    .withMessage(
-      "Invalid subject. Must be one of: Physics, Chemistry, Mathematics, Biology"
-    );
+    .withMessage("Subjects are required")
+    .isArray({ min: 1 })
+    .withMessage("Subjects must be a non-empty array")
+    .custom((value) => {
+      const validSubjects = [
+        "biology",
+        "physics",
+        "mathematics",
+        "chemistry",
+        "english",
+        "hindi",
+      ];
+      if (!value.every((s) => validSubjects.includes(s.toLowerCase()))) {
+        throw new Error(
+          `Invalid subject. Must be one of: ${validSubjects.join(", ")}`
+        );
+      }
+      return true;
+    });
 
   if (optional) {
     return validator.optional();
@@ -2840,15 +2870,21 @@ export const validateLiveClassSubject = (optional = false) => {
 
 // Live class specification validation
 export const validateLiveClassSpecification = (optional = false) => {
-  const validator = body("liveClassSpecification")
+  const validator = body("specializations")
     .notEmpty()
-    .withMessage("Live class specification is required")
-    .isIn(VALID_SPECIALIZATIONS)
-    .withMessage(
-      `Invalid specification. Must be one of: ${VALID_SPECIALIZATIONS.join(
-        ", "
-      )}`
-    );
+    .withMessage("Specializations are required")
+    .isArray({ min: 1 })
+    .withMessage("Specializations must be a non-empty array")
+    .custom((value) => {
+      if (!value.every((s) => VALID_SPECIALIZATIONS.includes(s))) {
+        throw new Error(
+          `Invalid specialization. Must be one of: ${VALID_SPECIALIZATIONS.join(
+            ", "
+          )}`
+        );
+      }
+      return true;
+    });
 
   if (optional) {
     return validator.optional();
@@ -2923,10 +2959,9 @@ export const validateClassDuration = (optional = false) => {
 };
 
 // Live class ID validation
-export const validateLiveClassID = (optional = false) => {
+export const validateLiveClassID = (optional = true) => {
   const validator = body("liveClassID")
-    .notEmpty()
-    .withMessage("Live class ID is required")
+    .if(body("liveClassID").notEmpty())
     .isLength({ min: 3, max: 50 })
     .withMessage("Live class ID must be between 3 and 50 characters")
     .matches(/^[A-Z0-9-]+$/)
@@ -2959,20 +2994,20 @@ export const validateClassArray = (optional = false) => {
   const validator = body("class")
     .notEmpty()
     .withMessage("Class is required")
-    .isArray()
-    .withMessage("Class must be an array")
+    .isArray({ min: 1 })
+    .withMessage("Class must be a non-empty array")
     .custom((value) => {
       const validClasses = [
-        "Class 6th",
-        "Class 7th",
-        "Class 8th",
-        "Class 9th",
-        "Class 10th",
-        "Class 11th",
-        "Class 12th",
-        "Dropper",
+        "class-6th",
+        "class-7th",
+        "class-8th",
+        "class-9th",
+        "class-10th",
+        "class-11th",
+        "class-12th",
+        "dropper",
       ];
-      if (!value.every((c) => validClasses.includes(c))) {
+      if (!value.every((c) => validClasses.includes(c.toLowerCase()))) {
         throw new Error(
           `Invalid class. Must be one of: ${validClasses.join(", ")}`
         );
@@ -3058,7 +3093,7 @@ export const validateRecordingURL = [
 
 // Complete validation array for creating live class
 export const createLiveClassValidation = [
-  validateLiveClassID(false),
+  validateLiveClassID(true), // Optional, will be auto-generated
   validateLiveClassEducatorId,
   validateLiveClassCourseId,
   validateLiveClassFee(false),
