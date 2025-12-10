@@ -19,8 +19,14 @@ import studyMaterialRoutes from "./routes/studyMaterial.route.js";
 import uploadRoutes from "./routes/upload.route.js";
 import videoRoutes from "./routes/video.route.js";
 import notificationRoutes from "./routes/notification.route.js";
+import adminRoutes from "./routes/admin.route.js";
+import educatorMessageRoutes from "./routes/educatorMessage.route.js";
+import chatRoutes from "./routes/chat.route.js";
+import queryRoutes from "./routes/query.route.js";
 import connectDB from "./util/DBConnect.js";
 import initializeNotificationSocket from "./sockets/notification.socket.js";
+import { initializeChatNamespace } from "./sockets/chat.socket.js";
+import { initializeStudentEducatorQueryNamespace } from "./sockets/studentEducator.socket.js";
 dotenv.config();
 
 const APP = express();
@@ -43,6 +49,12 @@ const io = new Server(server, {
 // Initialize notification socket handlers
 initializeNotificationSocket(io);
 
+// Initialize chat socket namespace
+initializeChatNamespace(io);
+
+// Initialize student-educator query namespace
+initializeStudentEducatorQueryNamespace(io);
+
 // Middleware
 APP.use(
   cors({
@@ -63,9 +75,13 @@ APP.use(express.urlencoded({ extended: true }));
 
 // Use routes
 APP.use("/api/auth", authRoutes);
+APP.use("/api/admin", adminRoutes);
+APP.use("/api/chat", chatRoutes);
+APP.use("/api/queries", queryRoutes);
 APP.use("/api/questions", questionRoutes);
 APP.use("/api/webinars", webinarRoutes);
 APP.use("/api/educators", educatorRoutes);
+APP.use("/api/educators", educatorMessageRoutes);
 APP.use("/api/tests", testRoutes);
 APP.use("/api/courses", courseRoutes);
 APP.use("/api/test-series", testSeriesRoutes);

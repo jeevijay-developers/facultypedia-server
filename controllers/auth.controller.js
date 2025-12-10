@@ -2,6 +2,7 @@ import { validationResult } from "express-validator";
 import bcrypt from "bcrypt";
 import Educator from "../models/educator.js";
 import Student from "../models/student.js";
+import Admin from "../models/admin.js";
 import {
   decodeToken,
   generateAccessToken,
@@ -118,7 +119,8 @@ const generateUniqueUsername = async ({
     "educator",
   ].map((candidate) => normalizeUsernameInput(candidate || ""));
 
-  let base = baseCandidates.find((candidate) => candidate.length >= 3) ||
+  let base =
+    baseCandidates.find((candidate) => candidate.length >= 3) ||
     `mentor_${Date.now()}`;
   base = base.slice(0, 20);
 
@@ -155,12 +157,13 @@ const sanitizeExperienceArray = (entries = []) => {
       endDate: parseDateValue(entry.endDate),
       description: normalizeString(entry.description),
     }))
-    .filter((entry) =>
-      entry.title ||
-      entry.company ||
-      entry.description ||
-      entry.startDate ||
-      entry.endDate
+    .filter(
+      (entry) =>
+        entry.title ||
+        entry.company ||
+        entry.description ||
+        entry.startDate ||
+        entry.endDate
     );
 };
 
@@ -177,8 +180,9 @@ const sanitizeQualificationArray = (entries = []) => {
       endDate: parseDateValue(entry.endDate),
       description: normalizeString(entry.description),
     }))
-    .filter((entry) =>
-      entry.title || entry.institute || entry.description || entry.startDate
+    .filter(
+      (entry) =>
+        entry.title || entry.institute || entry.description || entry.startDate
     );
 };
 
@@ -417,8 +421,8 @@ export const signupEducator = async (req, res) => {
       email: normalizedEmail,
     });
 
-    const fullName = buildFullName(normalizedFirstName, normalizedLastName) ||
-      username;
+    const fullName =
+      buildFullName(normalizedFirstName, normalizedLastName) || username;
 
     const normalizedBio = normalizeString(bio);
 
@@ -706,6 +710,244 @@ export const getCurrentEducatorProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching educator profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// ==================== Admin Authentication ====================
+
+const sanitizeAdmin = (admin) => {
+  const data =
+    typeof admin.toObject === "function" ? admin.toObject() : { ...admin };
+  delete data.password;
+  delete data.refreshTokens;
+  return data;
+};
+
+const storeAdminRefreshToken = async (adminId, refreshToken) => {
+  const decoded = decodeToken(refreshToken);
+  const expiresAt = decoded?.exp
+    ? new Date(decoded.exp * 1000)
+    : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const tokenHash = hashToken(refreshToken);
+
+  await Admin.findByIdAndUpdate(adminId, {
+    $pull: { refreshTokens: { token: tokenHash } },
+  });
+
+  await Admin.findByIdAndUpdate(adminId, {
+    $push: {
+      refreshTokens: {
+        $each: [
+          {
+            token: tokenHash,
+            expiresAt,
+          },
+        ],
+        $slice: -MAX_REFRESH_TOKENS,
+      },
+    },
+  });
+};
+
+const issueAdminTokens = async (adminId) => {
+  const accessToken = generateAccessToken({
+    sub: adminId.toString(),
+    role: "admin",
+  });
+  const refreshToken = generateRefreshToken({
+    sub: adminId.toString(),
+    role: "admin",
+  });
+
+  await storeAdminRefreshToken(adminId, refreshToken);
+
+  return { accessToken, refreshToken };
+};
+
+export const adminLogin = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const { email, password } = req.body;
+
+    const admin = await Admin.findOne({ email }).select(
+      "+password +refreshTokens"
+    );
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    if (admin.status !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin account is inactive",
+      });
+    }
+
+    const isPasswordValid = await admin.comparePassword(password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // Update last login
+    admin.lastLogin = new Date();
+    await admin.save();
+
+    const { accessToken, refreshToken } = await issueAdminTokens(admin._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Admin logged in successfully",
+      data: {
+        admin: sanitizeAdmin(admin),
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    console.error("Error during admin login:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const adminSignup = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    // Check if super admin already exists
+    const existingSuperAdmin = await Admin.findOne({ isSuperAdmin: true });
+    if (existingSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Super admin already exists. Only one super admin is allowed.",
+      });
+    }
+
+    const { username, email, password, fullName } = req.body;
+
+    // Check for existing admin with same email or username
+    const existingAdmin = await Admin.findOne({
+      $or: [{ email }, { username }],
+    });
+
+    if (existingAdmin) {
+      return res.status(409).json({
+        success: false,
+        message: "Admin with this email or username already exists",
+      });
+    }
+
+    const admin = new Admin({
+      username,
+      email,
+      password,
+      fullName,
+      isSuperAdmin: true,
+      status: "active",
+    });
+
+    await admin.save();
+
+    const { accessToken, refreshToken } = await issueAdminTokens(admin._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Super admin created successfully",
+      data: {
+        admin: sanitizeAdmin(admin),
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    console.error("Error during admin signup:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const logoutAdmin = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const { refreshToken } = req.body;
+
+    let payload;
+    try {
+      payload = verifyRefreshToken(refreshToken);
+    } catch (error) {
+      return res.status(200).json({
+        success: true,
+        message: "Logged out",
+      });
+    }
+
+    const hashedToken = hashToken(refreshToken);
+
+    await Admin.findByIdAndUpdate(payload.sub, {
+      $pull: { refreshTokens: { token: hashedToken } },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Admin logged out successfully",
+    });
+  } catch (error) {
+    console.error("Error during admin logout:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const getCurrentAdminProfile = async (req, res) => {
+  try {
+    const admin = req.admin;
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Admin profile fetched",
+      data: {
+        admin: sanitizeAdmin(admin),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching admin profile:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

@@ -76,8 +76,51 @@ export const educatorOnly = (socket, next) => {
   next();
 };
 
+/**
+ * Middleware to restrict socket connection to admins only
+ */
+export const adminOnly = (socket, next) => {
+  if (socket.userRole !== "admin") {
+    return next(
+      new Error("Authorization error: Only admins can connect to this socket")
+    );
+  }
+  next();
+};
+
+/**
+ * Middleware to restrict socket connection to admins or educators
+ */
+export const adminOrEducatorOnly = (socket, next) => {
+  if (socket.userRole !== "admin" && socket.userRole !== "educator") {
+    return next(
+      new Error(
+        "Authorization error: Only admins and educators can connect to this socket"
+      )
+    );
+  }
+  next();
+};
+
+/**
+ * Middleware to restrict socket connection to students or educators
+ */
+export const studentOrEducatorOnly = (socket, next) => {
+  if (socket.userRole !== "student" && socket.userRole !== "educator") {
+    return next(
+      new Error(
+        "Authorization error: Only students and educators can connect to this socket"
+      )
+    );
+  }
+  next();
+};
+
 export default {
   authenticateSocket,
   studentOnly,
   educatorOnly,
+  adminOnly,
+  adminOrEducatorOnly,
+  studentOrEducatorOnly,
 };
