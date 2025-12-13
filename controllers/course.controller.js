@@ -105,6 +105,13 @@ export const createCourse = async (req, res) => {
         _id: course._id,
         title: course.title,
         slug: course.slug,
+        description: course.description,
+        image: course.image,
+        courseThumbnail: course.courseThumbnail,
+        fees: course.fees,
+        courseType: course.courseType,
+        startDate: course.startDate,
+        validDate: course.validDate,
       });
     } catch (notificationError) {
       console.error("Error sending notifications:", notificationError);

@@ -62,6 +62,11 @@ export const createLiveClass = async (req, res) => {
         title: newLiveClass.liveClassTitle,
         slug: newLiveClass.slug,
         classTiming: newLiveClass.classTiming,
+        classDuration: newLiveClass.classDuration,
+        description: newLiveClass.description,
+        liveClassesFee: newLiveClass.liveClassesFee,
+        subject: newLiveClass.subject,
+        introVideo: newLiveClass.introVideo,
       });
     } catch (notificationError) {
       console.error("Error sending notifications:", notificationError);

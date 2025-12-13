@@ -76,6 +76,13 @@ export const createWebinar = async (req, res) => {
         slug: savedWebinar.slug,
         timing: savedWebinar.timing,
         scheduledDate: savedWebinar.timing,
+        description: savedWebinar.description,
+        image: savedWebinar.image,
+        webinarType: savedWebinar.webinarType,
+        duration: savedWebinar.duration,
+        fees: savedWebinar.fees,
+        class: savedWebinar.class,
+        specialization: savedWebinar.specialization,
       });
     } catch (notificationError) {
       console.error("Error sending notifications:", notificationError);

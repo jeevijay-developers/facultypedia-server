@@ -165,6 +165,28 @@ const educatorSchema = new mongoose.Schema(
         min: [0, "Rating count cannot be negative"],
       },
     },
+    studentRatings: {
+      type: [
+        {
+          student: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Student",
+            required: true,
+          },
+          value: {
+            type: Number,
+            required: true,
+            min: [0, "Rating cannot be less than 0"],
+            max: [5, "Rating cannot be more than 5"],
+          },
+          ratedAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+    },
     subject: [
       {
         type: String,

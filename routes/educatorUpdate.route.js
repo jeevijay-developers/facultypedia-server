@@ -18,6 +18,7 @@ import {
   validatePayPerHourFee,
 } from "../util/validation.js";
 import { uploadEducatorImage } from "../config/cloudinary.js";
+import multer from "multer";
 
 const router = express.Router();
 
@@ -80,7 +81,27 @@ router.put(
 router.put(
   "/update-image/:educatorId",
   ...validateObjectId("educatorId"),
-  uploadEducatorImage.single("image"),
+  (req, res, next) => {
+    uploadEducatorImage.single("image")(req, res, (error) => {
+      if (error) {
+        console.error("Educator image upload failed:", error);
+        if (error instanceof multer.MulterError) {
+          return res.status(400).json({
+            success: false,
+            message: error.message || "Failed to upload image",
+          });
+        }
+
+        const cloudinaryMessage =
+          error?.message || error?.error?.message || "Unable to upload image";
+        return res.status(500).json({
+          success: false,
+          message: cloudinaryMessage,
+        });
+      }
+      next();
+    });
+  },
   updateEducatorImageController
 );
 

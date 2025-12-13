@@ -104,6 +104,13 @@ export const createTestSeries = async (req, res) => {
         _id: testSeries._id,
         title: testSeries.title,
         slug: testSeries.slug,
+        description: testSeries.description,
+        image: testSeries.image,
+        price: testSeries.price,
+        numberOfTests: testSeries.numberOfTests,
+        validity: testSeries.validity,
+        subject: testSeries.subject,
+        specialization: testSeries.specialization,
       });
     } catch (notificationError) {
       console.error("Error sending notifications:", notificationError);

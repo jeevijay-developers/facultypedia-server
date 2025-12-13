@@ -74,6 +74,9 @@ export const createPost = async (req, res) => {
         _id: post._id,
         title: post.title,
         slug: post._id.toString(), // Posts might not have slugs
+        description: post.description,
+        subjects: post.subjects,
+        specializations: post.specializations,
       });
     } catch (notificationError) {
       console.error("Error sending notifications:", notificationError);
@@ -430,6 +433,16 @@ export const deletePost = async (req, res) => {
     await Educator.findByIdAndUpdate(post.educatorId, {
       $pull: { posts: post._id },
     });
+
+    try {
+      await notificationService.removeNotificationsForResource("post", post._id);
+    } catch (cleanupError) {
+      console.error(
+        "Error removing notifications for deleted post:",
+        post._id,
+        cleanupError
+      );
+    }
 
     res.status(200).json({
       success: true,

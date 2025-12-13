@@ -69,7 +69,7 @@ const updateEducatorValidation = [
 const followerValidation = [...validateObjectId(), ...validateStudentId];
 
 // Validation middleware for rating
-const ratingValidation = [...validateObjectId(), ...validateRating];
+const ratingValidation = [...validateObjectId(), ...validateStudentId, ...validateRating];
 
 // Validation middleware for revenue update
 const revenueValidation = [...validateObjectId(), ...validateRevenue];

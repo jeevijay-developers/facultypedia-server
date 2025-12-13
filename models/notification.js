@@ -56,6 +56,37 @@ const notificationSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "LiveClass",
       },
+      resourceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        index: true,
+      },
+      resourceType: {
+        type: String,
+        enum: [
+          "course",
+          "webinar",
+          "post",
+          "test_series",
+          "live_class",
+        ],
+      },
+      resourceRoute: {
+        type: String,
+        trim: true,
+      },
+      link: {
+        type: String,
+        trim: true,
+      },
+      thumbnail: {
+        type: String,
+        trim: true,
+      },
+      summary: {
+        type: String,
+        trim: true,
+        maxlength: [280, "Summary cannot exceed 280 characters"],
+      },
       contentTitle: {
         type: String,
         trim: true,
@@ -92,6 +123,7 @@ notificationSchema.index({ recipient: 1, isRead: 1 });
 notificationSchema.index({ recipient: 1, createdAt: -1 });
 notificationSchema.index({ sender: 1, createdAt: -1 });
 notificationSchema.index({ recipient: 1, type: 1 });
+notificationSchema.index({ "metadata.resourceId": 1, type: 1 });
 
 // Static method to get unread count for a student
 notificationSchema.statics.getUnreadCount = function (studentId) {

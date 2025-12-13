@@ -1,6 +1,11 @@
+import mongoose from "mongoose";
 import Notification from "../models/notification.js";
 import Educator from "../models/educator.js";
-import Student from "../models/student.js";
+import Course from "../models/course.js";
+import Webinar from "../models/webinar.js";
+import Post from "../models/post.js";
+import TestSeries from "../models/testSeries.js";
+import LiveClass from "../models/liveClass.js";
 
 class NotificationService {
   constructor() {
@@ -77,7 +82,7 @@ class NotificationService {
     try {
       // Fetch educator with followers populated
       const educator = await Educator.findById(educatorId)
-        .select("fullName username followers")
+        .select("fullName username followers profilePicture image slug")
         .populate({
           path: "followers",
           select: "preferences deviceToken",
@@ -99,45 +104,34 @@ class NotificationService {
         contentData
       );
 
-      // Prepare metadata based on type
-      const metadata = {
-        contentTitle: contentData.title,
-        contentSlug: contentData.slug,
-      };
-
-      if (type === "course") {
-        metadata.courseId = contentData._id;
-      } else if (type === "webinar") {
-        metadata.webinarId = contentData._id;
-        metadata.scheduledDate =
-          contentData.timing || contentData.scheduledDate;
-      } else if (type === "post") {
-        metadata.postId = contentData._id;
-      } else if (type === "test_series") {
-        metadata.testSeriesId = contentData._id;
-      } else if (type === "live_class") {
-        metadata.liveClassId = contentData._id;
-        metadata.scheduledDate = contentData.classTiming;
-      }
+      const metadata = this.buildNotificationMetadata(type, contentData);
 
       // Create notifications for all followers
       const notifications = [];
       const onlineStudents = [];
 
-      for (const follower of educator.followers) {
-        // Check if student has push notifications enabled
-        const pushEnabled = follower.preferences?.notifications?.push !== false;
+      for (const followerEntry of educator.followers) {
+        const followerId = this.resolveId(followerEntry);
+        if (!followerId) {
+          continue;
+        }
+
+        const followerPreferences =
+          followerEntry?.preferences?.notifications?.push !== false;
+        const pushEnabled =
+          typeof followerEntry === "object" && followerEntry !== null
+            ? followerPreferences
+            : true;
 
         if (!pushEnabled) {
           console.log(
-            `Push notifications disabled for student: ${follower._id}`
+            `Push notifications disabled for student: ${followerId}`
           );
           continue;
         }
 
-        // Create notification in database
         const notification = await this.createNotification({
-          recipient: follower._id,
+          recipient: followerId,
           sender: educatorId,
           type,
           title: template.title,
@@ -147,11 +141,8 @@ class NotificationService {
 
         notifications.push(notification);
 
-        // Check if student is online and emit real-time notification
         if (this.io) {
-          const studentSocketId = this.getSocketIdByUserId(
-            follower._id.toString()
-          );
+          const studentSocketId = this.getSocketIdByUserId(followerId);
           if (studentSocketId) {
             this.io.to(studentSocketId).emit("notification", {
               type,
@@ -160,22 +151,24 @@ class NotificationService {
                 title: template.title,
                 message: template.message,
                 type,
-                metadata,
+                metadata: this.normalizeMetadata(metadata, type),
                 isRead: false,
                 createdAt: notification.createdAt,
                 sender: {
                   _id: educatorId,
                   fullName: educator.fullName,
                   username: educator.username,
+                  profilePicture:
+                    educator.profilePicture ||
+                    this.resolveMediaUrl(educator.image),
                 },
               },
             });
 
-            // Mark as delivered
             notification.deliveredAt = new Date();
             await notification.save();
 
-            onlineStudents.push(follower._id);
+            onlineStudents.push(followerId);
           }
         }
       }
@@ -223,17 +216,22 @@ class NotificationService {
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
       const notifications = await Notification.find(filter)
-        .populate("sender", "fullName username profilePicture slug")
+        .populate("sender", "fullName username profilePicture slug image")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit));
+        .limit(parseInt(limit))
+        .lean();
 
       const totalNotifications = await Notification.countDocuments(filter);
       const totalPages = Math.ceil(totalNotifications / parseInt(limit));
 
+      const enrichedNotifications = await this.enrichNotifications(
+        notifications
+      );
+
       return {
         success: true,
-        notifications,
+        notifications: enrichedNotifications,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -271,20 +269,27 @@ class NotificationService {
         throw new Error("Notification not found");
       }
 
-      if (notification.isRead) {
-        return {
-          success: true,
-          message: "Notification already read",
-          notification,
-        };
+      const wasAlreadyRead = notification.isRead;
+
+      if (!wasAlreadyRead) {
+        await notification.markAsRead();
       }
 
-      await notification.markAsRead();
+      await notification.populate(
+        "sender",
+        "fullName username profilePicture slug image"
+      );
+
+      const [enriched] = await this.enrichNotifications([
+        notification.toObject(),
+      ]);
 
       return {
         success: true,
-        message: "Notification marked as read",
-        notification,
+        message: wasAlreadyRead
+          ? "Notification already read"
+          : "Notification marked as read",
+        notification: enriched || null,
       };
     } catch (error) {
       console.error("Error marking notification as read:", error);
@@ -338,8 +343,895 @@ class NotificationService {
       throw error;
     }
   }
+
+  // ===== Helper utilities =====
+
+  buildNotificationMetadata(type, contentData = {}) {
+    const resourceId = this.maybeCastObjectId(contentData?._id);
+    const slug = this.resolveSlug(contentData);
+    const route = this.buildResourceRoute(type, {
+      _id: resourceId || contentData?._id,
+      slug,
+    });
+
+    const metadata = {
+      resourceType: type,
+      resourceId,
+      contentTitle: contentData?.title || null,
+      contentSlug: slug,
+      resourceRoute: route,
+      link: route,
+      thumbnail:
+        this.resolveMediaUrl(contentData?.thumbnail) ||
+        this.resolveThumbnail(contentData) ||
+        null,
+      summary:
+        contentData?.summary ||
+        this.buildSummaryFromText(
+          this.extractDescriptionPayload(contentData)
+        ),
+    };
+
+    switch (type) {
+      case "course":
+        metadata.courseId = resourceId;
+        metadata.price = this.resolveNumber(contentData?.fees);
+        metadata.courseType = contentData?.courseType || null;
+        metadata.scheduledDate =
+          this.resolveDate(contentData?.startDate) ||
+          this.resolveDate(contentData?.validDate) ||
+          null;
+        break;
+      case "webinar":
+        metadata.webinarId = resourceId;
+        metadata.scheduledDate = this.resolveDate(
+          contentData?.timing || contentData?.scheduledDate
+        );
+        metadata.webinarType = contentData?.webinarType || null;
+        metadata.duration = contentData?.duration || null;
+        metadata.price = this.resolveNumber(contentData?.fees);
+        break;
+      case "post":
+        metadata.postId = resourceId;
+        break;
+      case "test_series":
+        metadata.testSeriesId = resourceId;
+        metadata.price = this.resolveNumber(contentData?.price);
+        metadata.numberOfTests = this.resolveNumber(
+          contentData?.numberOfTests
+        );
+        metadata.validity = this.resolveNumber(contentData?.validity);
+        break;
+      case "live_class":
+        metadata.liveClassId = resourceId;
+        metadata.scheduledDate = this.resolveDate(contentData?.classTiming);
+        metadata.duration = contentData?.classDuration || null;
+        metadata.price = this.resolveNumber(contentData?.liveClassesFee);
+        break;
+      default:
+        break;
+    }
+
+    return this.removeEmptyMetadata(metadata);
+  }
+
+  maybeCastObjectId(value) {
+    if (!value) {
+      return undefined;
+    }
+
+    if (value instanceof mongoose.Types.ObjectId) {
+      return value;
+    }
+
+    if (typeof value === "string" && mongoose.Types.ObjectId.isValid(value)) {
+      return new mongoose.Types.ObjectId(value);
+    }
+
+    if (value && typeof value === "object" && value._id) {
+      return this.maybeCastObjectId(value._id);
+    }
+
+    return undefined;
+  }
+
+  resolveId(value) {
+    if (!value) {
+      return null;
+    }
+
+    if (typeof value === "string") {
+      return value.trim().length > 0 ? value.trim() : null;
+    }
+
+    if (value instanceof mongoose.Types.ObjectId) {
+      return value.toString();
+    }
+
+    if (typeof value === "object") {
+      if (value._id) {
+        return this.resolveId(value._id);
+      }
+
+      if (value.id) {
+        return this.resolveId(value.id);
+      }
+
+      if (typeof value.toString === "function") {
+        const serialized = value.toString();
+        if (
+          serialized &&
+          serialized !== "[object Object]" &&
+          mongoose.Types.ObjectId.isValid(serialized)
+        ) {
+          return serialized;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  resolveSlug(payload) {
+    if (!payload) {
+      return null;
+    }
+
+    if (typeof payload === "string" && payload.trim().length > 0) {
+      return payload.trim();
+    }
+
+    const candidates = [payload.slug, payload.contentSlug, payload.slugId];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
+        return candidate.trim();
+      }
+    }
+
+    return null;
+  }
+
+  resolveNumber(value) {
+    if (typeof value === "number" && !Number.isNaN(value)) {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
+  }
+
+  resolveDate(value) {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  resolveISODate(value) {
+    const date = this.resolveDate(value);
+    return date ? date.toISOString() : null;
+  }
+
+  extractDescriptionPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    const description =
+      payload.description ?? payload.details ?? payload.message ?? null;
+
+    if (!description) {
+      return null;
+    }
+
+    if (typeof description === "string") {
+      return description;
+    }
+
+    if (typeof description === "object") {
+      const keys = ["long", "short", "text", "body", "summary"];
+      for (const key of keys) {
+        const candidate = description[key];
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  buildSummaryFromText(text, limit = 180) {
+    if (!text || typeof text !== "string") {
+      return null;
+    }
+
+    const normalized = text.replace(/\s+/g, " ").trim();
+    if (!normalized) {
+      return null;
+    }
+
+    if (normalized.length <= limit) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, limit - 3).trim()}...`;
+  }
+
+  resolveMediaUrl(candidate) {
+    if (!candidate) {
+      return null;
+    }
+
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+
+    if (Array.isArray(candidate)) {
+      for (const entry of candidate) {
+        const resolved = this.resolveMediaUrl(entry);
+        if (resolved) {
+          return resolved;
+        }
+      }
+      return null;
+    }
+
+    if (typeof candidate === "object") {
+      const preferredKeys = ["secure_url", "url", "src", "path", "href"];
+      for (const key of preferredKeys) {
+        if (candidate[key] && typeof candidate[key] === "string") {
+          const value = candidate[key].trim();
+          if (value.length > 0) {
+            return value;
+          }
+        }
+      }
+
+      if (candidate.preview) {
+        return this.resolveMediaUrl(candidate.preview);
+      }
+    }
+
+    return null;
+  }
+
+  resolveThumbnail(payload) {
+    if (!payload) {
+      return null;
+    }
+
+    if (typeof payload === "string") {
+      return this.resolveMediaUrl(payload);
+    }
+
+    const candidateKeys = [
+      "thumbnail",
+      "image",
+      "courseThumbnail",
+      "coverImage",
+      "bannerImage",
+      "featureImage",
+      "previewImage",
+      "poster",
+      "profilePicture",
+      "avatar",
+    ];
+
+    for (const key of candidateKeys) {
+      if (payload[key]) {
+        const resolved = this.resolveMediaUrl(payload[key]);
+        if (resolved) {
+          return resolved;
+        }
+      }
+    }
+
+    if (payload.media) {
+      return this.resolveThumbnail(payload.media);
+    }
+
+    return null;
+  }
+
+  buildResourceRoute(type, payload = {}) {
+    const slug = this.resolveSlug(payload);
+    const id = this.resolveId(payload);
+    const slugOrId = slug || id;
+
+    if (!slugOrId) {
+      return null;
+    }
+
+    const baseRouteMap = {
+      course: "/details/course/",
+      webinar: "/student-webinars/",
+      post: "/posts/",
+      test_series: "/student-test-series/",
+      live_class: "/1-1-live-class/",
+    };
+
+    const baseRoute = baseRouteMap[type];
+    if (!baseRoute) {
+      return null;
+    }
+
+    return `${baseRoute}${slugOrId}`;
+  }
+
+  removeEmptyMetadata(metadata) {
+    const cleaned = {};
+
+    Object.entries(metadata || {}).forEach(([key, value]) => {
+      if (value === undefined) {
+        return;
+      }
+      cleaned[key] = value;
+    });
+
+    if (cleaned.link === undefined && cleaned.resourceRoute !== undefined) {
+      cleaned.link = cleaned.resourceRoute;
+    }
+
+    return cleaned;
+  }
+
+  normalizeMetadata(metadata, type) {
+    if (!metadata || typeof metadata !== "object") {
+      return { resourceType: type };
+    }
+
+    const normalized = {};
+
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (value === undefined) {
+        return;
+      }
+      normalized[key] = this.normalizeMetadataValue(value);
+    });
+
+    if (!normalized.resourceId) {
+      const fallbackId = this.getFallbackResourceId(type, normalized);
+      if (fallbackId) {
+        normalized.resourceId = this.resolveId(fallbackId);
+      }
+    } else {
+      normalized.resourceId = this.resolveId(normalized.resourceId);
+    }
+
+    if (!normalized.resourceType) {
+      normalized.resourceType = type;
+    }
+
+    if (!normalized.link && normalized.resourceRoute) {
+      normalized.link = normalized.resourceRoute;
+    }
+
+    if (!normalized.resourceRoute && normalized.link) {
+      normalized.resourceRoute = normalized.link;
+    }
+
+    if (!normalized.contentTitle && normalized.title) {
+      normalized.contentTitle = normalized.title;
+    }
+
+    if (normalized.scheduledDate) {
+      normalized.scheduledDate = this.resolveISODate(normalized.scheduledDate);
+    }
+
+    return normalized;
+  }
+
+  normalizeMetadataValue(value) {
+    if (value === null) {
+      return null;
+    }
+
+    if (value instanceof mongoose.Types.ObjectId) {
+      return value.toString();
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.normalizeMetadataValue(entry));
+    }
+
+    if (typeof value === "object") {
+      const normalized = {};
+      Object.entries(value).forEach(([key, nested]) => {
+        normalized[key] = this.normalizeMetadataValue(nested);
+      });
+      return normalized;
+    }
+
+    return value;
+  }
+
+  getFallbackResourceId(type, metadata = {}) {
+    switch (type) {
+      case "course":
+        return metadata.courseId || null;
+      case "webinar":
+        return metadata.webinarId || null;
+      case "post":
+        return metadata.postId || null;
+      case "test_series":
+        return metadata.testSeriesId || null;
+      case "live_class":
+        return metadata.liveClassId || null;
+      default:
+        return metadata.resourceId || metadata.entityId || null;
+    }
+  }
+
+  getMetadataKeyForType(type) {
+    const map = {
+      course: "metadata.courseId",
+      webinar: "metadata.webinarId",
+      post: "metadata.postId",
+      test_series: "metadata.testSeriesId",
+      live_class: "metadata.liveClassId",
+    };
+
+    return map[type] || null;
+  }
+
+  collectResourceIds(notifications = []) {
+    const buckets = {
+      course: new Set(),
+      webinar: new Set(),
+      post: new Set(),
+      test_series: new Set(),
+      live_class: new Set(),
+    };
+
+    notifications.forEach((notification) => {
+      if (!notification || !notification.type) {
+        return;
+      }
+
+      const type = notification.type;
+      if (!buckets[type]) {
+        return;
+      }
+
+      const metadata = notification.metadata || {};
+      const candidateIds = [
+        metadata.resourceId,
+        metadata.courseId,
+        metadata.webinarId,
+        metadata.postId,
+        metadata.testSeriesId,
+        metadata.liveClassId,
+        notification.entityId,
+        notification.contentId,
+      ];
+
+      for (const candidate of candidateIds) {
+        const resolved = this.resolveId(candidate);
+        if (resolved) {
+          buckets[type].add(resolved);
+          return;
+        }
+      }
+    });
+
+    return buckets;
+  }
+
+  resolveEntityId(notification) {
+    if (!notification) {
+      return null;
+    }
+
+    const metadata = notification.metadata || {};
+    const fallbackKeys = [
+      "resourceId",
+      "entityId",
+      "contentId",
+      "courseId",
+      "webinarId",
+      "postId",
+      "testSeriesId",
+      "liveClassId",
+    ];
+
+    for (const key of fallbackKeys) {
+      const value = metadata[key] ?? notification[key];
+      const resolved = this.resolveId(value);
+      if (resolved) {
+        return resolved;
+      }
+    }
+
+    return null;
+  }
+
+  async enrichNotifications(notifications = []) {
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      return [];
+    }
+
+    const normalized = notifications.map((notification) =>
+      typeof notification.toObject === "function"
+        ? notification.toObject()
+        : { ...notification }
+    );
+
+    const buckets = this.collectResourceIds(normalized);
+
+    const [courses, webinars, posts, testSeries, liveClasses] =
+      await Promise.all([
+        buckets.course.size
+          ? Course.find({ _id: { $in: Array.from(buckets.course) } })
+              .select(
+                "title slug description image courseThumbnail fees startDate courseType validDate"
+              )
+              .lean()
+          : [],
+        buckets.webinar.size
+          ? Webinar.find({ _id: { $in: Array.from(buckets.webinar) } })
+              .select(
+                "title slug description image webinarType timing duration fees subject specialization class"
+              )
+              .lean()
+          : [],
+        buckets.post.size
+          ? Post.find({ _id: { $in: Array.from(buckets.post) } })
+              .select("title description subjects specializations createdAt")
+              .lean()
+          : [],
+        buckets.test_series.size
+          ? TestSeries.find({ _id: { $in: Array.from(buckets.test_series) } })
+              .select(
+                "title slug description image price numberOfTests validity"
+              )
+              .lean()
+          : [],
+        buckets.live_class.size
+          ? LiveClass.find({ _id: { $in: Array.from(buckets.live_class) } })
+              .select(
+                "liveClassTitle slug description classTiming classDuration liveClassesFee subject introVideo"
+              )
+              .lean()
+          : [],
+      ]);
+
+    const resourceMaps = {
+      course: new Map(courses.map((doc) => [this.resolveId(doc), doc])),
+      webinar: new Map(webinars.map((doc) => [this.resolveId(doc), doc])),
+      post: new Map(posts.map((doc) => [this.resolveId(doc), doc])),
+      test_series: new Map(
+        testSeries.map((doc) => [this.resolveId(doc), doc])
+      ),
+      live_class: new Map(
+        liveClasses.map((doc) => [this.resolveId(doc), doc])
+      ),
+    };
+
+    const pruneTargets = [];
+
+    const transformed = normalized
+      .map((notification) =>
+        this.transformNotification(notification, resourceMaps, pruneTargets)
+      )
+      .filter(Boolean);
+
+    if (pruneTargets.length > 0) {
+      const uniqueTargets = new Map();
+
+      pruneTargets.forEach(({ type, resourceId }) => {
+        if (!type || !resourceId) {
+          return;
+        }
+
+        const key = `${type}:${resourceId}`;
+        if (!uniqueTargets.has(key)) {
+          uniqueTargets.set(key, { type, resourceId });
+        }
+      });
+
+      await Promise.all(
+        Array.from(uniqueTargets.values()).map(({ type, resourceId }) =>
+          this.removeNotificationsForResource(type, resourceId).catch((error) =>
+            console.error(
+              "Failed to prune notifications for resource:",
+              type,
+              resourceId,
+              error
+            )
+          )
+        )
+      );
+    }
+
+    return transformed;
+  }
+
+  transformNotification(notification, resourceMaps, pruneTargets = []) {
+    if (!notification) {
+      return null;
+    }
+
+    const type = notification.type;
+    const metadata = this.normalizeMetadata(notification.metadata, type);
+    const entityId = metadata.resourceId || this.resolveEntityId(notification);
+    const resourceMap = resourceMaps[type] || new Map();
+    const resource = entityId ? resourceMap.get(entityId) : null;
+
+    let route =
+      metadata.resourceRoute ||
+      metadata.link ||
+      this.buildResourceRoute(type, {
+        _id: entityId,
+        slug: metadata.contentSlug,
+      });
+
+    if (type === "course" && route?.includes("/student-courses/")) {
+      const modernRoute = this.buildResourceRoute(type, {
+        _id: entityId,
+        slug: metadata.contentSlug,
+      });
+
+      if (modernRoute && modernRoute !== route) {
+        route = modernRoute;
+
+        if (metadata) {
+          metadata.resourceRoute = modernRoute;
+
+          if (metadata.link?.includes("/student-courses/")) {
+            metadata.link = modernRoute;
+          }
+        }
+      }
+    }
+
+    if (route && metadata) {
+      if (!metadata.resourceRoute) {
+        metadata.resourceRoute = route;
+      }
+
+      if (!metadata.link) {
+        metadata.link = route;
+      }
+    }
+
+    const contentSnapshot = resource
+      ? this.buildContentSnapshot(type, resource, {
+          ...metadata,
+          resourceId: entityId,
+          resourceRoute: route,
+        })
+      : this.buildFallbackSnapshot(type, entityId, route, metadata);
+
+    if (!contentSnapshot || contentSnapshot.available === false) {
+      if (entityId) {
+        pruneTargets.push({ type, resourceId: entityId });
+      }
+      return null;
+    }
+
+    const educator = this.transformEducator(notification.sender);
+
+    return {
+      id: this.resolveId(notification._id) || null,
+      type,
+      title: notification.title,
+      message: notification.message,
+      isRead: Boolean(notification.isRead),
+      isDelivered: Boolean(notification.deliveredAt),
+      createdAt: this.resolveISODate(notification.createdAt),
+      readAt: this.resolveISODate(notification.readAt),
+      deliveredAt: this.resolveISODate(notification.deliveredAt),
+      educator,
+      educatorName:
+        educator?.fullName ||
+        educator?.username ||
+        metadata.educatorName ||
+        "Educator",
+      entityId: contentSnapshot?.id || metadata.resourceId || entityId || null,
+      link: contentSnapshot?.route || null,
+      metadata,
+      content: contentSnapshot,
+    };
+  }
+
+  buildContentSnapshot(type, resource, metadata = {}) {
+    const id = this.resolveId(resource) || metadata.resourceId || null;
+    const slug = this.resolveSlug(resource) || metadata.contentSlug || null;
+    const route =
+      metadata.resourceRoute ||
+      metadata.link ||
+      this.buildResourceRoute(type, { _id: id, slug });
+    const thumbnail =
+      metadata.thumbnail || this.resolveThumbnail(resource) || null;
+    const summary =
+      metadata.summary ||
+      this.buildSummaryFromText(this.extractDescriptionPayload(resource));
+
+    const snapshot = {
+      id,
+      type,
+      title: this.resolveResourceTitle(type, resource, metadata),
+      slug,
+      thumbnail,
+      summary,
+      route,
+      available: true,
+    };
+
+    switch (type) {
+      case "course":
+        snapshot.courseType = resource.courseType || metadata.courseType || null;
+        snapshot.price =
+          this.resolveNumber(resource.fees ?? resource.price) ??
+          this.resolveNumber(metadata.price);
+        snapshot.startsAt = this.resolveISODate(
+          resource.startDate || metadata.scheduledDate
+        );
+        break;
+      case "webinar":
+        snapshot.scheduledAt = this.resolveISODate(
+          resource.timing || metadata.scheduledDate
+        );
+        snapshot.duration = resource.duration || metadata.duration || null;
+        snapshot.price =
+          this.resolveNumber(resource.fees) || this.resolveNumber(metadata.price);
+        snapshot.webinarType =
+          resource.webinarType || metadata.webinarType || null;
+        break;
+      case "post":
+        snapshot.publishedAt = this.resolveISODate(
+          resource.createdAt || metadata.createdAt
+        );
+        break;
+      case "test_series":
+        snapshot.price =
+          this.resolveNumber(resource.price) || this.resolveNumber(metadata.price);
+        snapshot.numberOfTests =
+          this.resolveNumber(resource.numberOfTests) ||
+          this.resolveNumber(metadata.numberOfTests);
+        snapshot.validity =
+          this.resolveNumber(resource.validity) ||
+          this.resolveNumber(metadata.validity);
+        break;
+      case "live_class":
+        snapshot.scheduledAt = this.resolveISODate(
+          resource.classTiming || metadata.scheduledDate
+        );
+        snapshot.duration =
+          resource.classDuration || metadata.duration || null;
+        snapshot.price =
+          this.resolveNumber(resource.liveClassesFee) ||
+          this.resolveNumber(metadata.price);
+        break;
+      default:
+        break;
+    }
+
+    return snapshot;
+  }
+
+  buildFallbackSnapshot(type, entityId, route, metadata) {
+    return {
+      id: entityId,
+      type,
+      title: metadata.contentTitle || this.getTypeLabel(type),
+      slug: metadata.contentSlug || null,
+      thumbnail: metadata.thumbnail || null,
+      summary: metadata.summary || null,
+      route: route || null,
+      available: false,
+    };
+  }
+
+  resolveResourceTitle(type, resource, metadata) {
+    if (resource?.title) {
+      return resource.title;
+    }
+
+    if (type === "live_class" && resource?.liveClassTitle) {
+      return resource.liveClassTitle;
+    }
+
+    return metadata.contentTitle || this.getTypeLabel(type);
+  }
+
+  transformEducator(sender) {
+    if (!sender) {
+      return null;
+    }
+
+    const raw =
+      typeof sender.toObject === "function" ? sender.toObject() : sender;
+
+    const avatar =
+      this.resolveMediaUrl(raw.profilePicture) ||
+      this.resolveMediaUrl(raw.image) ||
+      null;
+
+    return {
+      id: this.resolveId(raw._id || raw.id || raw),
+      fullName: raw.fullName || null,
+      username: raw.username || null,
+      slug: raw.slug || null,
+      avatar,
+    };
+  }
+
+  getTypeLabel(type) {
+    const labels = {
+      course: "Course",
+      webinar: "Webinar",
+      post: "Post",
+      test_series: "Test Series",
+      live_class: "Live Class",
+    };
+
+    return labels[type] || "Update";
+  }
+
+  async removeNotificationsForResource(type, resourceId) {
+    const resolvedId = this.resolveId(resourceId);
+
+    if (!type || !resolvedId) {
+      return { success: false, deletedCount: 0 };
+    }
+
+    const objectId = this.maybeCastObjectId(resourceId);
+    const metadataKey = this.getMetadataKeyForType(type);
+
+    const orConditions = [];
+
+    if (objectId) {
+      orConditions.push({ "metadata.resourceId": objectId });
+      if (metadataKey) {
+        orConditions.push({ [metadataKey]: objectId });
+      }
+    }
+
+    orConditions.push({ "metadata.resourceId": resolvedId });
+    if (metadataKey) {
+      orConditions.push({ [metadataKey]: resolvedId });
+    }
+
+    const filter = {
+      type,
+      $or: orConditions,
+    };
+
+    try {
+      const result = await Notification.deleteMany(filter);
+      return {
+        success: true,
+        deletedCount: result?.deletedCount ?? 0,
+      };
+    } catch (error) {
+      console.error(
+        "Error removing notifications for resource:",
+        type,
+        resourceId,
+        error
+      );
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance
 const notificationService = new NotificationService();
 export default notificationService;
+

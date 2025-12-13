@@ -684,9 +684,22 @@ export const getEducatorFollowers = async (req, res) => {
 export const updateEducatorRating = async (req, res) => {
   try {
     const { id } = req.params;
-    const { rating } = req.body;
+    const { rating, studentId } = req.body;
 
-    if (!rating || rating < 0 || rating > 5) {
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Student ID is required",
+      });
+    }
+
+    const numericRating = Number(rating);
+
+    if (
+      Number.isNaN(numericRating) ||
+      numericRating < 0 ||
+      numericRating > 5
+    ) {
       return res.status(400).json({
         success: false,
         message: "Rating must be between 0 and 5",
@@ -702,20 +715,46 @@ export const updateEducatorRating = async (req, res) => {
       });
     }
 
-    // Calculate new average rating
-    const totalRatings = educator.rating.count;
-    const currentAverage = educator.rating.average;
-    const newAverage =
-      (currentAverage * totalRatings + rating) / (totalRatings + 1);
+    if (!Array.isArray(educator.studentRatings)) {
+      educator.studentRatings = [];
+    }
+
+    const studentIdString = studentId.toString();
+
+    const existingRatingIndex = educator.studentRatings.findIndex(
+      (entry) => entry.student?.toString() === studentIdString
+    );
+
+    if (existingRatingIndex > -1) {
+      educator.studentRatings[existingRatingIndex].value = numericRating;
+      educator.studentRatings[existingRatingIndex].ratedAt = new Date();
+    } else {
+      educator.studentRatings.push({
+        student: studentId,
+        value: numericRating,
+        ratedAt: new Date(),
+      });
+    }
+
+    const totalRatings = educator.studentRatings.length;
+    const ratingSum = educator.studentRatings.reduce(
+      (sum, entry) => sum + Number(entry.value ?? 0),
+      0
+    );
+
+    const newAverage = totalRatings > 0 ? ratingSum / totalRatings : 0;
 
     educator.rating.average = parseFloat(newAverage.toFixed(2));
-    educator.rating.count = totalRatings + 1;
+    educator.rating.count = totalRatings;
 
     await educator.save();
 
     res.status(200).json({
       success: true,
-      message: "Rating updated successfully",
+      message:
+        existingRatingIndex > -1
+          ? "Rating updated successfully"
+          : "Rating submitted successfully",
       data: {
         rating: educator.rating,
       },
