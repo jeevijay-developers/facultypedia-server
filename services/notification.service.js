@@ -1126,6 +1126,27 @@ class NotificationService {
   }
 
   buildFallbackSnapshot(type, entityId, route, metadata) {
+    if (type === "broadcast_message") {
+      return {
+        id: entityId || null,
+        type,
+        title:
+          metadata.contentTitle ||
+          metadata.title ||
+          metadata.subject ||
+          "Message",
+        slug: null,
+        thumbnail: metadata.thumbnail || null,
+        summary:
+          metadata.summary ||
+          metadata.message ||
+          metadata.preview ||
+          null,
+        route: null,
+        available: true,
+      };
+    }
+
     return {
       id: entityId,
       type,
@@ -1179,6 +1200,7 @@ class NotificationService {
       post: "Post",
       test_series: "Test Series",
       live_class: "Live Class",
+      broadcast_message: "Message",
     };
 
     return labels[type] || "Update";
