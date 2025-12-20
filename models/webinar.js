@@ -91,12 +91,16 @@ const webinarSchema = new mongoose.Schema({
     ref: "Educator",
     required: true,
   },
-  studentEnrolled: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
-    },
-  ],
+  studentEnrolled: {
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Student",
+      },
+    ],
+    default: [],
+  },
+  default: [],
   webinarLink: {
     type: String,
     required: false,
@@ -164,17 +168,22 @@ webinarSchema.statics.findUpcoming = function () {
 
 // Virtual to get enrolled student count
 webinarSchema.virtual("enrolledCount").get(function () {
-  return this.studentEnrolled.length;
+  const list = this.studentEnrolled || [];
+  return Array.isArray(list) ? list.length : 0;
 });
 
 // Virtual to check if seats are available
 webinarSchema.virtual("seatsAvailable").get(function () {
-  return this.seatLimit - this.studentEnrolled.length;
+  const list = this.studentEnrolled || [];
+  const count = Array.isArray(list) ? list.length : 0;
+  return this.seatLimit - count;
 });
 
 // Virtual to check if webinar is full
 webinarSchema.virtual("isFull").get(function () {
-  return this.studentEnrolled.length >= this.seatLimit;
+  const list = this.studentEnrolled || [];
+  const count = Array.isArray(list) ? list.length : 0;
+  return count >= this.seatLimit;
 });
 
 // Ensure virtual fields are included in JSON output

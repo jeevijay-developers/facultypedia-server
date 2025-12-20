@@ -100,6 +100,7 @@ export const getAllLiveClasses = async (req, res) => {
       educatorID,
       isCourseSpecific,
       isActive,
+      studentId,
     } = req.query;
 
         const pageNum = Math.max(1, parseInt(page));
@@ -128,10 +129,11 @@ export const getAllLiveClasses = async (req, res) => {
         if (educatorID) filter.educatorID = educatorID;
         if (isCourseSpecific !== undefined) filter.isCourseSpecific = isCourseSpecific === 'true';
         if (isActive !== undefined) filter.isActive = isActive === 'true';
+        if (studentId) filter['enrolledStudents.studentId'] = studentId;
 
     const totalLiveClasses = await LiveClass.countDocuments(filter);
     const liveClasses = await LiveClass.find(filter)
-      .populate("educatorID", "name email")
+      .populate("educatorID", "fullName username firstName lastName email")
       .populate("assignInCourse", "name")
       .populate("enrolledStudents.studentId", "name email")
       .sort({ classTiming: 1 })
@@ -171,7 +173,7 @@ export const getLiveClassById = async (req, res) => {
     const { id } = req.params;
 
     const liveClass = await LiveClass.findById(id)
-      .populate("educatorID", "name email")
+      .populate("educatorID", "fullName username firstName lastName email")
       .populate("assignInCourse", "name")
       .populate("enrolledStudents.studentId", "name email");
 
@@ -203,7 +205,7 @@ export const getLiveClassBySlug = async (req, res) => {
     const { slug } = req.params;
 
     const liveClass = await LiveClass.findOne({ slug })
-      .populate("educatorID", "name email")
+      .populate("educatorID", "fullName username firstName lastName email")
       .populate("assignInCourse", "name")
       .populate("enrolledStudents.studentId", "name email");
 
@@ -235,7 +237,7 @@ export const getLiveClassByLiveClassID = async (req, res) => {
     const { liveClassID } = req.params;
 
     const liveClass = await LiveClass.findByLiveClassID(liveClassID)
-      .populate("educatorID", "name email")
+      .populate("educatorID", "fullName username firstName lastName email")
       .populate("assignInCourse", "name")
       .populate("enrolledStudents.studentId", "name email");
 
@@ -283,7 +285,7 @@ export const updateLiveClass = async (req, res) => {
       { ...req.body, updatedAt: Date.now() },
       { new: true, runValidators: true }
     )
-      .populate("educatorID", "name email")
+      .populate("educatorID", "fullName username firstName lastName email")
       .populate("assignInCourse", "name")
       .populate("enrolledStudents.studentId", "name email");
 
@@ -352,7 +354,7 @@ export const getLiveClassesByEducator = async (req, res) => {
       isActive: true,
     });
     const liveClasses = await LiveClass.find({ educatorID, isActive: true })
-      .populate("educatorID", "name email")
+      .populate("educatorID", "fullName username firstName lastName email")
       .populate("assignInCourse", "name")
       .populate("enrolledStudents.studentId", "name email")
       .sort({ classTiming: 1 })
@@ -540,7 +542,7 @@ export const getUpcomingLiveClasses = async (req, res) => {
 
     const totalLiveClasses = await LiveClass.countDocuments(filter);
     const liveClasses = await LiveClass.find(filter)
-      .populate("educatorID", "name email")
+      .populate("educatorID", "fullName username firstName lastName email")
       .populate("assignInCourse", "name")
       .sort({ classTiming: 1 })
       .skip(skip)

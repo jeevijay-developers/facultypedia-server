@@ -10,6 +10,7 @@ import {
 import {
   getRazorpayClient,
   getRazorpayKeyId,
+  getRazorpayKeySecret,
   getRazorpayWebhookSecret,
 } from "../config/razorpay.js";
 
@@ -41,6 +42,10 @@ const buildProductSnapshot = (productType, product) => {
   } else if (productType === "webinar") {
     snapshot.fees = product.fees;
     snapshot.timing = product.timing;
+  } else if (productType === "liveClass") {
+    snapshot.fees = product.liveClassesFee;
+    snapshot.classTiming = product.classTiming;
+    snapshot.classDuration = product.classDuration;
   }
   return snapshot;
 };
@@ -116,10 +121,22 @@ export const createPaymentOrder = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating payment order:", error);
-    res.status(500).json({
+    const statusCode =
+      error.message &&
+      [
+        "Student not found or inactive",
+        "Unsupported product type",
+        "Unable to find",
+        "is inactive",
+        "has reached capacity",
+        "has invalid price",
+      ].some((msg) => error.message.includes(msg))
+        ? 400
+        : 500;
+
+    res.status(statusCode).json({
       success: false,
-      message: "Unable to create payment order",
-      error: error.message,
+      message: error.message || "Unable to create payment order",
     });
   }
 };
@@ -189,6 +206,90 @@ const handleFailedPayment = async (intent, paymentEntity, eventName) => {
   intent.lastEvent = eventName;
   await intent.save();
   return intent;
+};
+
+export const verifyPaymentSignature = async (req, res) => {
+  try {
+    const { orderId, paymentId, signature, intentId } = req.body || {};
+
+    if (!orderId || !paymentId || !signature) {
+      return res.status(400).json({
+        success: false,
+        message: "orderId, paymentId and signature are required",
+      });
+    }
+
+    const keySecret = getRazorpayKeySecret();
+    if (!keySecret) {
+      return res.status(500).json({
+        success: false,
+        message: "Razorpay secret not configured",
+      });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", keySecret)
+      .update(`${orderId}|${paymentId}`)
+      .digest("hex");
+
+    if (expectedSignature !== signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment signature",
+      });
+    }
+
+    const intent = intentId
+      ? await PaymentIntent.findById(intentId)
+      : await PaymentIntent.findOne({ razorpayOrderId: orderId });
+
+    if (!intent) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment intent not found",
+      });
+    }
+
+    if (intent.razorpayOrderId && intent.razorpayOrderId !== orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "Order mismatch for intent",
+      });
+    }
+
+    if (intent.status === "succeeded") {
+      return res.status(200).json({
+        success: true,
+        message: "Payment already verified",
+        data: { status: intent.status, intentId: intent._id },
+      });
+    }
+
+    const paymentEntity = {
+      id: paymentId,
+      status: "captured",
+      signature,
+    };
+
+    const updatedIntent = await handleSuccessfulPayment(
+      intent,
+      paymentEntity,
+      "payment.verified"
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment verified",
+      data: { status: updatedIntent.status, intentId: updatedIntent._id },
+    });
+  } catch (error) {
+    console.error("Error verifying payment signature:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to verify payment",
+      error: error.message,
+    });
+  }
 };
 
 export const handleRazorpayWebhook = async (req, res) => {

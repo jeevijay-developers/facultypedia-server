@@ -146,7 +146,7 @@ export const getAllCourses = async (req, res) => {
       status, // ongoing, upcoming, completed
     } = req.query;
 
-    const query = { isActive: true };
+    const query = { isActive: true, status: { $ne: "deleted" } };
 
     // Apply filters
     if (specialization) {
@@ -234,7 +234,11 @@ export const getCourseById = async (req, res) => {
 
     const { id } = req.params;
 
-    const course = await Course.findOne({ _id: id, isActive: true })
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    })
       .populate(
         "educatorID",
         "fullName username email profilePicture specialization"
@@ -265,7 +269,11 @@ export const getCourseBySlug = async (req, res) => {
 
     const { slug } = req.params;
 
-    const course = await Course.findOne({ slug, isActive: true })
+    const course = await Course.findOne({
+      slug,
+      isActive: true,
+      status: { $ne: "deleted" },
+    })
       .populate(
         "educatorID",
         "fullName username email profilePicture specialization"
@@ -329,7 +337,7 @@ export const updateCourse = async (req, res) => {
     delete updateData.ratingCount;
 
     const course = await Course.findOneAndUpdate(
-      { _id: id, isActive: true },
+      { _id: id, isActive: true, status: { $ne: "deleted" } },
       { ...updateData, updatedAt: Date.now() },
       { new: true, runValidators: true }
     ).populate("educatorID", "fullName username email");
@@ -358,17 +366,19 @@ export const deleteCourse = async (req, res) => {
 
     const { id } = req.params;
 
-    const course = await Course.findOneAndUpdate(
-      { _id: id, isActive: true },
-      { isActive: false, updatedAt: Date.now() },
-      { new: true }
-    );
+    // Hard-delete the course document so it is fully removed from the database
+    const course = await Course.findOne({ _id: id });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    res.status(200).json({ message: "Course deleted successfully" });
+    await course.deleteOne();
+
+    res.status(200).json({
+      message: "Course deleted successfully",
+      courseId: id,
+    });
   } catch (error) {
     console.error("Error deleting course:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -398,6 +408,7 @@ export const getCoursesByEducator = async (req, res) => {
     const total = await Course.countDocuments({
       educatorID: educatorId,
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -436,6 +447,7 @@ export const getCoursesBySpecialization = async (req, res) => {
     const total = await Course.countDocuments({
       specialization: specialization,
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -474,6 +486,7 @@ export const getCoursesBySubject = async (req, res) => {
     const total = await Course.countDocuments({
       subject: subject,
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -512,6 +525,7 @@ export const getCoursesByClass = async (req, res) => {
     const total = await Course.countDocuments({
       class: className,
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -550,6 +564,7 @@ export const getCoursesByRating = async (req, res) => {
     const total = await Course.countDocuments({
       rating: { $gte: parseFloat(minRating) },
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -592,6 +607,7 @@ export const getCoursesByDateRange = async (req, res) => {
       startDate: { $gte: new Date(startDate) },
       endDate: { $lte: new Date(endDate) },
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -625,6 +641,7 @@ export const getOngoingCourses = async (req, res) => {
       startDate: { $lte: now },
       endDate: { $gte: now },
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -655,6 +672,7 @@ export const getUpcomingCourses = async (req, res) => {
     const total = await Course.countDocuments({
       startDate: { $gt: new Date() },
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     res.status(200).json({
@@ -682,7 +700,11 @@ export const enrollStudent = async (req, res) => {
     const { id } = req.params;
     const { studentId } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -725,7 +747,11 @@ export const addPurchase = async (req, res) => {
     const { id } = req.params;
     const { studentId } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -763,7 +789,11 @@ export const addLiveClass = async (req, res) => {
     const { id } = req.params;
     const { liveClassId } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -801,7 +831,11 @@ export const removeLiveClass = async (req, res) => {
     const { id } = req.params;
     const { liveClassId } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -834,7 +868,11 @@ export const addTestSeries = async (req, res) => {
     const { id } = req.params;
     const { testSeriesId } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -872,7 +910,11 @@ export const removeTestSeries = async (req, res) => {
     const { id } = req.params;
     const { testSeriesId } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -905,7 +947,11 @@ export const updateCourseRating = async (req, res) => {
     const { id } = req.params;
     const { rating } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -944,7 +990,11 @@ export const addVideo = async (req, res) => {
     const { id } = req.params;
     const { title, link, duration, sequenceNumber } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -985,7 +1035,11 @@ export const removeVideo = async (req, res) => {
 
     const { id, videoId } = req.params;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -1018,7 +1072,11 @@ export const addStudyMaterial = async (req, res) => {
     const { id } = req.params;
     const { title, link, fileType } = req.body;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -1048,7 +1106,11 @@ export const removeStudyMaterial = async (req, res) => {
 
     const { id, materialId } = req.params;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -1080,7 +1142,11 @@ export const getCourseStatistics = async (req, res) => {
 
     const { id } = req.params;
 
-    const course = await Course.findOne({ _id: id, isActive: true });
+    const course = await Course.findOne({
+      _id: id,
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -1116,28 +1182,34 @@ export const getCourseStatistics = async (req, res) => {
 // Get overall platform statistics
 export const getOverallStatistics = async (req, res) => {
   try {
-    const totalCourses = await Course.countDocuments({ isActive: true });
+    const totalCourses = await Course.countDocuments({
+      isActive: true,
+      status: { $ne: "deleted" },
+    });
     const now = new Date();
 
     const ongoingCourses = await Course.countDocuments({
       startDate: { $lte: now },
       endDate: { $gte: now },
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     const upcomingCourses = await Course.countDocuments({
       startDate: { $gt: now },
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     const completedCourses = await Course.countDocuments({
       endDate: { $lt: now },
       isActive: true,
+      status: { $ne: "deleted" },
     });
 
     // Statistics by specialization
     const specializationStats = await Course.aggregate([
-      { $match: { isActive: true } },
+      { $match: { isActive: true, status: { $ne: "deleted" } } },
       { $unwind: "$specialization" },
       {
         $group: {
@@ -1151,7 +1223,7 @@ export const getOverallStatistics = async (req, res) => {
 
     // Statistics by subject
     const subjectStats = await Course.aggregate([
-      { $match: { isActive: true } },
+      { $match: { isActive: true, status: { $ne: "deleted" } } },
       { $unwind: "$subject" },
       {
         $group: {
@@ -1163,7 +1235,10 @@ export const getOverallStatistics = async (req, res) => {
     ]);
 
     // Top rated courses
-    const topRatedCourses = await Course.find({ isActive: true })
+    const topRatedCourses = await Course.find({
+      isActive: true,
+      status: { $ne: "deleted" },
+    })
       .sort({ rating: -1, ratingCount: -1 })
       .limit(10)
       .select("title rating ratingCount educatorID")
@@ -1171,7 +1246,7 @@ export const getOverallStatistics = async (req, res) => {
 
     // Most enrolled courses
     const mostEnrolledCourses = await Course.aggregate([
-      { $match: { isActive: true } },
+      { $match: { isActive: true, status: { $ne: "deleted" } } },
       {
         $project: {
           title: 1,

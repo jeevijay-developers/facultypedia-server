@@ -36,6 +36,11 @@ const server = createServer(APP);
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_DASHBOARD_URL,
   process.env.NEXT_PUBLIC_WEB_URL,
+  // Development fallbacks
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:5173",
 ].filter(Boolean);
 
 const io = new Server(server, {
@@ -58,7 +63,8 @@ initializeStudentEducatorQueryNamespace(io);
 // Middleware
 APP.use(
   cors({
-    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+    // Allow defined origins; in dev default to common localhost ports
+    origin: allowedOrigins,
     credentials: true,
   })
 );

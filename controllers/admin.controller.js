@@ -51,22 +51,102 @@ export const getAllEducators = async (req, res) => {
     sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
     const educators = await Educator.find(filter)
-      .select("-password -refreshTokens")
-      .populate("followers", "name email")
-      .populate("courses", "title slug fees")
-      .populate("webinars", "title scheduledDate")
+      .select(
+        "fullName username email specialization rating status followers courses"
+      )
+      .populate({
+        path: "courses",
+        select: "enrolledStudents",
+        options: { strictPopulate: false },
+      })
+      .populate({
+        path: "followers",
+        select: "_id",
+        options: { strictPopulate: false },
+      })
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
 
     const totalEducators = await Educator.countDocuments(filter);
     const totalPages = Math.ceil(totalEducators / parseInt(limit));
+
+    const normalizedEducators = Array.isArray(educators)
+      ? educators
+          .map((educator) => {
+            const id = educator?._id?.toString();
+            if (!id) {
+              return null;
+            }
+
+            const specializationValues = Array.isArray(educator?.specialization)
+              ? educator.specialization.filter(Boolean)
+              : [];
+
+            const courseList = Array.isArray(educator?.courses)
+              ? educator.courses
+              : [];
+
+            const totalCourses = courseList.length;
+
+            const enrolledStudentIds = new Set();
+            courseList.forEach((course) => {
+              if (course && Array.isArray(course.enrolledStudents)) {
+                course.enrolledStudents.forEach((studentId) => {
+                  if (studentId) {
+                    enrolledStudentIds.add(String(studentId));
+                  }
+                });
+              }
+            });
+
+            const followersCount = Array.isArray(educator?.followers)
+              ? educator.followers.length
+              : 0;
+
+            const totalStudents = enrolledStudentIds.size || followersCount;
+
+            const ratingValue = (() => {
+              const rawRating = educator?.rating;
+              if (typeof rawRating === "number") {
+                return rawRating;
+              }
+              if (
+                rawRating &&
+                typeof rawRating === "object" &&
+                typeof rawRating.average === "number"
+              ) {
+                return rawRating.average;
+              }
+              return 0;
+            })();
+
+            const normalizedRating = Number.isFinite(ratingValue)
+              ? Math.round(ratingValue * 100) / 100
+              : 0;
+
+            return {
+              id,
+              fullName: educator?.fullName ?? "",
+              username: educator?.username ?? "",
+              email: educator?.email ?? "",
+              specialization: specializationValues,
+              rating: normalizedRating,
+              status: educator?.status ?? "inactive",
+              totalCourses,
+              totalStudents,
+              followersCount,
+            };
+          })
+          .filter(Boolean)
+      : [];
 
     res.status(200).json({
       success: true,
       message: "Educators retrieved successfully",
       data: {
-        educators,
+        educators: normalizedEducators,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -212,16 +292,53 @@ export const getAllStudents = async (req, res) => {
       .populate("courses.courseId", "title")
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
 
     const totalStudents = await Student.countDocuments(filter);
     const totalPages = Math.ceil(totalStudents / parseInt(limit));
+
+    const normalizedStudents = Array.isArray(students)
+      ? students
+          .map((student) => {
+            const id = student?._id?.toString();
+            if (!id) {
+              return null;
+            }
+
+            const specializationList = Array.isArray(student?.specialization)
+              ? student.specialization.filter(Boolean)
+              : student?.specialization
+                ? [student.specialization]
+                : student?.examPreference
+                  ? [student.examPreference]
+                  : [];
+
+            const totalCourses = Array.isArray(student?.courses)
+              ? student.courses.length
+              : Number(student?.totalCourses ?? 0);
+
+            const isActive = student?.isActive !== false;
+
+            return {
+              id,
+              name: student?.name || student?.fullName || "Unknown",
+              email: student?.email || "—",
+              class: student?.class || student?.grade || "—",
+              specialization: specializationList,
+              enrolledCourses: totalCourses,
+              status: isActive ? "active" : "inactive",
+              joinedAt: student?.createdAt || null,
+            };
+          })
+          .filter(Boolean)
+      : [];
 
     res.status(200).json({
       success: true,
       message: "Students retrieved successfully",
       data: {
-        students,
+        students: normalizedStudents,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -342,16 +459,54 @@ export const getAllCourses = async (req, res) => {
       .populate("enrolledStudents", "name email")
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
 
     const totalCourses = await Course.countDocuments(filter);
     const totalPages = Math.ceil(totalCourses / parseInt(limit));
+
+    const normalizedCourses = Array.isArray(courses)
+      ? courses
+          .map((course) => {
+            const id = course?._id?.toString();
+            if (!id) {
+              return null;
+            }
+
+            const educator = course?.educatorID;
+            const educatorName = educator?.fullName || educator?.username || educator?.email || "Unknown";
+
+            const subjectList = Array.isArray(course?.subject)
+              ? course.subject.filter(Boolean)
+              : course?.subject
+                ? [course.subject]
+                : [];
+
+            const enrolledCount = Array.isArray(course?.enrolledStudents)
+              ? course.enrolledStudents.length
+              : Number(course?.enrolledCount ?? 0);
+
+            const fees = Number.isFinite(Number(course?.fees)) ? Number(course.fees) : 0;
+            const status = course?.isActive === false ? "inactive" : "active";
+
+            return {
+              id,
+              title: course?.title || "Untitled course",
+              educatorName,
+              subject: subjectList,
+              enrolled: enrolledCount,
+              fees,
+              status,
+            };
+          })
+          .filter(Boolean)
+      : [];
 
     res.status(200).json({
       success: true,
       message: "Courses retrieved successfully",
       data: {
-        courses,
+        courses: normalizedCourses,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -413,6 +568,210 @@ export const deleteCourse = async (req, res) => {
   }
 };
 
+// ==================== Test Management ====================
+
+// Get all tests across all educators
+export const getAllTests = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
+
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = {};
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+    const tests = await Test.find(filter)
+      .populate("educatorID", "fullName username email")
+      .populate("questions", "_id")
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const totalTests = await Test.countDocuments(filter);
+    const totalPages = Math.ceil(totalTests / parseInt(limit));
+
+    const normalizedTests = Array.isArray(tests)
+      ? tests
+          .map((test) => {
+            const id = test?._id?.toString();
+            if (!id) {
+              return null;
+            }
+
+            const subjectList = Array.isArray(test?.subjects)
+              ? test.subjects.filter(Boolean)
+              : test?.subjects
+                ? [test.subjects]
+                : [];
+
+            const durationMinutes = Number.isFinite(Number(test?.duration))
+              ? Number(test.duration)
+              : 0;
+
+            const marks = Number.isFinite(Number(test?.overallMarks))
+              ? Number(test.overallMarks)
+              : 0;
+
+            const questionsCount = Array.isArray(test?.questions)
+              ? test.questions.length
+              : Number(test?.questionCount ?? 0);
+
+            const enrolledCount = Array.isArray(test?.enrolledStudents)
+              ? test.enrolledStudents.length
+              : Array.isArray(test?.attempts)
+                ? test.attempts.length
+                : Number(test?.enrolled ?? 0);
+
+            return {
+              id,
+              title: test?.title || "Untitled test",
+              subject: subjectList,
+              duration: durationMinutes,
+              marks,
+              questions: questionsCount,
+              enrolled: enrolledCount,
+              status: test?.isActive === false ? "inactive" : "active",
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    res.status(200).json({
+      success: true,
+      message: "Tests retrieved successfully",
+      data: {
+        tests: normalizedTests,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalTests,
+          hasNextPage: parseInt(page) < totalPages,
+          hasPrevPage: parseInt(page) > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching tests:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// ==================== Test Series Management ====================
+
+// Get all test series across all educators
+export const getAllTestSeries = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
+
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = {};
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+    const testSeriesList = await TestSeries.find(filter)
+      .populate("educatorId", "fullName username email")
+      .populate("tests", "_id")
+      .populate("enrolledStudents", "_id")
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const totalTestSeries = await TestSeries.countDocuments(filter);
+    const totalPages = Math.ceil(totalTestSeries / parseInt(limit));
+
+    const normalizedTestSeries = Array.isArray(testSeriesList)
+      ? testSeriesList
+          .map((series) => {
+            const id = series?._id?.toString();
+            if (!id) {
+              return null;
+            }
+
+            const educator = series?.educatorId;
+            const educatorName = educator?.fullName || educator?.username || educator?.email || "Unknown";
+
+            const testsCount = Array.isArray(series?.tests)
+              ? series.tests.length
+              : Number(series?.numberOfTests ?? series?.testCount ?? 0);
+
+            const enrolledCount = Array.isArray(series?.enrolledStudents)
+              ? series.enrolledStudents.length
+              : Number(series?.enrolledCount ?? 0);
+
+            const price = Number.isFinite(Number(series?.price)) ? Number(series.price) : 0;
+
+            return {
+              id,
+              title: series?.title || "Untitled test series",
+              educatorName,
+              tests: testsCount,
+              price,
+              validity: series?.validity || null,
+              enrolled: enrolledCount,
+              status: series?.isActive === false ? "inactive" : "active",
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    res.status(200).json({
+      success: true,
+      message: "Test series retrieved successfully",
+      data: {
+        testSeries: normalizedTestSeries,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalTestSeries,
+          hasNextPage: parseInt(page) < totalPages,
+          hasPrevPage: parseInt(page) > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching test series:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // ==================== Webinar Management ====================
 
 // Get all webinars across all educators
@@ -444,16 +803,56 @@ export const getAllWebinars = async (req, res) => {
       .populate("studentEnrolled", "name email")
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
 
     const totalWebinars = await Webinar.countDocuments(filter);
     const totalPages = Math.ceil(totalWebinars / parseInt(limit));
+
+    const normalizedWebinars = Array.isArray(webinars)
+      ? webinars
+          .map((webinar) => {
+            const id = webinar?._id?.toString();
+            if (!id) {
+              return null;
+            }
+
+            const educator = webinar?.educatorID;
+            const educatorName = educator?.fullName || educator?.username || educator?.email || "Unknown";
+
+            const subjectList = Array.isArray(webinar?.subject)
+              ? webinar.subject.filter(Boolean)
+              : webinar?.subject
+                ? [webinar.subject]
+                : [];
+
+            const enrolledCount = Array.isArray(webinar?.studentEnrolled)
+              ? webinar.studentEnrolled.length
+              : Number(webinar?.enrolledCount ?? 0);
+
+            const capacity = Number.isFinite(Number(webinar?.seatLimit)) ? Number(webinar.seatLimit) : 0;
+            const fees = Number.isFinite(Number(webinar?.fees)) ? Number(webinar.fees) : 0;
+
+            return {
+              id,
+              title: webinar?.title || "Untitled webinar",
+              educatorName,
+              subject: subjectList,
+              date: webinar?.timing || webinar?.createdAt || null,
+              capacity,
+              enrolled: enrolledCount,
+              fees,
+              status: webinar?.isActive === false ? "inactive" : "active",
+            };
+          })
+          .filter(Boolean)
+      : [];
 
     res.status(200).json({
       success: true,
       message: "Webinars retrieved successfully",
       data: {
-        webinars,
+        webinars: normalizedWebinars,
         pagination: {
           currentPage: parseInt(page),
           totalPages,

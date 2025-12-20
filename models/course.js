@@ -100,9 +100,33 @@ const courseSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  classesPerWeek: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  testFrequency: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  classDuration: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  classTiming: {
+    type: String,
+    trim: true,
+  },
   validDate: {
     type: Date,
     required: true,
+  },
+  videoTitle: {
+    type: String,
+    trim: true,
+    maxlength: 200,
   },
   videos: [
     {
@@ -225,6 +249,16 @@ const courseSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  // Soft-delete status tracking
+  status: {
+    type: String,
+    enum: ["active", "deleted"],
+    default: "active",
+  },
+  deletedAt: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -244,6 +278,7 @@ courseSchema.index({ rating: -1 });
 courseSchema.index({ startDate: 1 });
 courseSchema.index({ endDate: 1 });
 courseSchema.index({ fees: 1 });
+courseSchema.index({ status: 1 });
 
 // Pre-save middleware to update the updatedAt field
 courseSchema.pre("save", function (next) {
@@ -270,7 +305,11 @@ courseSchema.methods.generateSlug = function () {
 
 // Static method to find courses by educator
 courseSchema.statics.findByEducator = function (educatorId) {
-  return this.find({ educatorID: educatorId, isActive: true });
+  return this.find({
+    educatorID: educatorId,
+    isActive: true,
+    status: { $ne: "deleted" },
+  });
 };
 
 // Static method to find courses by specialization
@@ -279,7 +318,8 @@ courseSchema.statics.findBySpecialization = function (specialization) {
     specialization: { 
       $in: Array.isArray(specialization) ? specialization : [specialization] 
     }, 
-    isActive: true 
+    isActive: true,
+    status: { $ne: "deleted" },
   });
 };
 
@@ -289,7 +329,8 @@ courseSchema.statics.findBySubject = function (subject) {
     subject: { 
       $in: Array.isArray(subject) ? subject : [subject] 
     }, 
-    isActive: true 
+    isActive: true,
+    status: { $ne: "deleted" },
   });
 };
 
@@ -299,13 +340,18 @@ courseSchema.statics.findByClass = function (className) {
     class: { 
       $in: Array.isArray(className) ? className : [className] 
     }, 
-    isActive: true 
+    isActive: true,
+    status: { $ne: "deleted" },
   });
 };
 
 // Static method to find courses by minimum rating
 courseSchema.statics.findByMinRating = function (minRating) {
-  return this.find({ rating: { $gte: minRating }, isActive: true });
+  return this.find({
+    rating: { $gte: minRating },
+    isActive: true,
+    status: { $ne: "deleted" },
+  });
 };
 
 // Static method to find courses within date range
@@ -314,6 +360,7 @@ courseSchema.statics.findByDateRange = function (startDate, endDate) {
     startDate: { $gte: startDate },
     endDate: { $lte: endDate },
     isActive: true,
+    status: { $ne: "deleted" },
   });
 };
 
@@ -324,6 +371,7 @@ courseSchema.statics.findOngoing = function () {
     startDate: { $lte: now },
     endDate: { $gte: now },
     isActive: true,
+    status: { $ne: "deleted" },
   });
 };
 
@@ -332,6 +380,7 @@ courseSchema.statics.findUpcoming = function () {
   return this.find({
     startDate: { $gt: new Date() },
     isActive: true,
+    status: { $ne: "deleted" },
   }).sort({ startDate: 1 });
 };
 

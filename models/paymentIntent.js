@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 
-const PAYMENT_PRODUCT_TYPES = ["course", "testSeries", "webinar", "test"];
+const PAYMENT_PRODUCT_TYPES = [
+  "course",
+  "testSeries",
+  "webinar",
+  "test",
+  "liveClass",
+];
 const PAYMENT_STATUSES = [
   "created",
   "pending",

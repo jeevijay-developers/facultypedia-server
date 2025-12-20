@@ -58,18 +58,24 @@ const testSeriesSchema = new mongoose.Schema({
       required: true,
     },
   ],
-  enrolledStudents: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
-    },
-  ],
-  tests: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Test",
-    },
-  ],
+  enrolledStudents: {
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Student",
+      },
+    ],
+    default: [],
+  },
+  tests: {
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Test",
+      },
+    ],
+    default: [],
+  },
   isCourseSpecific: {
     type: Boolean,
     default: false,
@@ -173,12 +179,14 @@ testSeriesSchema.statics.findByCourse = function (courseId) {
 
 // Virtual to get enrolled student count
 testSeriesSchema.virtual("enrolledCount").get(function () {
-  return this.enrolledStudents.length;
+  const list = this.enrolledStudents || [];
+  return Array.isArray(list) ? list.length : 0;
 });
 
 // Virtual to get test count
 testSeriesSchema.virtual("testCount").get(function () {
-  return this.tests.length;
+  const list = this.tests || [];
+  return Array.isArray(list) ? list.length : 0;
 });
 
 // Virtual to check if validity is expired

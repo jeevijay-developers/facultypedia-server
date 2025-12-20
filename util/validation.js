@@ -67,7 +67,12 @@ export const VALID_QUESTION_TYPES = [
 ];
 export const VALID_DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"];
 export const VALID_OPTIONS = ["A", "B", "C", "D"];
-export const VALID_PAYMENT_PRODUCTS = ["course", "testSeries", "webinar"];
+export const VALID_PAYMENT_PRODUCTS = [
+  "course",
+  "testSeries",
+  "webinar",
+  "liveClass",
+];
 
 // ==================== Custom Validators ====================
 
@@ -2503,6 +2508,42 @@ export const validateMaxStudents = [
     .withMessage("Max students must be at least 1"),
 ];
 
+// Validate schedule fields
+export const validateCourseClassesPerWeek = [
+  body("classesPerWeek")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("Classes per week must be 0 or greater"),
+];
+
+export const validateCourseTestFrequency = [
+  body("testFrequency")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("Tests per week must be 0 or greater"),
+];
+
+export const validateCourseClassDuration = [
+  body("classDuration")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Class duration must be 0 or greater"),
+];
+
+export const validateCourseClassTiming = [
+  body("classTiming")
+    .optional()
+    .matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .withMessage("Class timing must be in HH:MM format"),
+];
+
+export const validateTopLevelVideoTitle = [
+  body("videoTitle")
+    .optional()
+    .isLength({ max: 200 })
+    .withMessage("Video title cannot exceed 200 characters"),
+];
+
 // Validate live class ID
 export const validateLiveClassId = [
   body("liveClassId")
@@ -2738,6 +2779,11 @@ export const createCourseValidation = [
   ...validatePrerequisites,
   ...validateCourseLanguage,
   ...validateCertificateAvailable,
+  ...validateTopLevelVideoTitle,
+  ...validateCourseClassesPerWeek,
+  ...validateCourseTestFrequency,
+  ...validateCourseClassDuration,
+  ...validateCourseClassTiming,
   ...validateMaxStudents,
 ];
 
@@ -2769,6 +2815,11 @@ export const updateCourseValidation = [
   ...validatePrerequisites,
   ...validateCourseLanguage,
   ...validateCertificateAvailable,
+  ...validateTopLevelVideoTitle,
+  ...validateCourseClassesPerWeek,
+  ...validateCourseTestFrequency,
+  ...validateCourseClassDuration,
+  ...validateCourseClassTiming,
   ...validateMaxStudents,
 ];
 

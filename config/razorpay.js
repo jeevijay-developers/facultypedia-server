@@ -22,5 +22,7 @@ export const getRazorpayClient = () => {
 
 export const getRazorpayKeyId = () => process.env.RAZORPAY_KEY_ID;
 
+export const getRazorpayKeySecret = () => process.env.RAZORPAY_KEY_SECRET;
+
 export const getRazorpayWebhookSecret = () =>
   process.env.RAZORPAY_WEBHOOK_SECRET || "";

@@ -11,6 +11,8 @@ import {
   getAllWebinars,
   deleteWebinar,
   getPlatformAnalytics,
+  getAllTests,
+  getAllTestSeries,
 } from "../controllers/admin.controller.js";
 import { authenticateAdmin } from "../middleware/auth.middleware.js";
 import { body, param } from "express-validator";
@@ -180,5 +182,37 @@ router.delete(
  * @access  Private (Admin only)
  */
 router.get("/analytics", getPlatformAnalytics);
+
+// ==================== Test Management Routes ====================
+
+/**
+ * @route   GET /api/admin/tests
+ * @desc    Get all tests across all educators
+ * @access  Private (Admin only)
+ * @query   {
+ *   page?: number (default: 1),
+ *   limit?: number (default: 20),
+ *   search?: string,
+ *   sortBy?: string (default: "createdAt"),
+ *   sortOrder?: "asc" | "desc" (default: "desc")
+ * }
+ */
+router.get("/tests", getAllTests);
+
+// ==================== Test Series Management Routes ====================
+
+/**
+ * @route   GET /api/admin/test-series
+ * @desc    Get all test series across all educators
+ * @access  Private (Admin only)
+ * @query   {
+ *   page?: number (default: 1),
+ *   limit?: number (default: 20),
+ *   search?: string,
+ *   sortBy?: string (default: "createdAt"),
+ *   sortOrder?: "asc" | "desc" (default: "desc")
+ * }
+ */
+router.get("/test-series", getAllTestSeries);
 
 export default router;

@@ -1,6 +1,7 @@
 import Course from "../models/course.js";
 import TestSeries from "../models/testSeries.js";
 import Webinar from "../models/webinar.js";
+import LiveClass from "../models/liveClass.js";
 import Student from "../models/student.js";
 
 const PRODUCT_TYPES = {
@@ -32,6 +33,16 @@ const PRODUCT_TYPES = {
       if (!webinar.seatLimit) return true;
       const enrolled = webinar.studentEnrolled?.length || 0;
       return enrolled < webinar.seatLimit;
+    },
+  },
+  liveClass: {
+    model: LiveClass,
+    price: (liveClass) => liveClass.liveClassesFee,
+    isActive: (liveClass) => liveClass.isActive !== false && !liveClass.isCompleted,
+    hasCapacity: (liveClass) => {
+      if (!liveClass.maxStudents) return true;
+      const enrolled = liveClass.enrolledStudents?.length || 0;
+      return enrolled < liveClass.maxStudents;
     },
   },
 };
@@ -89,6 +100,12 @@ export const isStudentAlreadyEnrolled = (productType, product, studentId) => {
     return product.studentEnrolled?.some(
       (id) => id.toString() === studentObjectId
     );
+  }
+  if (productType === "liveClass") {
+    return product.enrolledStudents?.some((entry) => {
+      const id = entry?.studentId || entry; // schema stores objects
+      return id?.toString() === studentObjectId;
+    });
   }
   return false;
 };
@@ -160,6 +177,19 @@ export const enrollStudentInProduct = async (
       student.webinars.push({ webinarId: productId, registeredAt: new Date() });
       await student.save();
     }
+    return;
+  }
+
+  if (productType === "liveClass") {
+    await LiveClass.findByIdAndUpdate(productId, {
+      $addToSet: {
+        enrolledStudents: {
+          studentId,
+          enrolledAt: new Date(),
+        },
+      },
+    });
+
     return;
   }
 
