@@ -53,11 +53,11 @@ router.post("/", createTestSeriesValidation, createTestSeries);
 // Get all test series with filters
 router.get("/", getAllTestSeries);
 
+// Get test series by slug (placed before :id to avoid route shadowing)
+router.get("/slug/:slug", validateSlug, getTestSeriesBySlug);
+
 // Get test series by ID
 router.get("/:id", validateObjectId("id"), getTestSeriesById);
-
-// Get test series by slug
-router.get("/slug/:slug", validateSlug, getTestSeriesBySlug);
 
 // Update test series by ID
 router.put("/:id", updateTestSeriesValidation, updateTestSeries);

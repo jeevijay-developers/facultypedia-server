@@ -224,7 +224,7 @@ export const getTestSeriesById = async (req, res) => {
         "fullName username email profilePicture specialization"
       )
       .populate("enrolledStudents", "fullName email")
-      .populate("tests", "title description duration totalMarks")
+      .populate("tests", "title description duration totalMarks questions")
       .populate("courseId", "title slug");
 
     if (!testSeries) {
@@ -254,7 +254,7 @@ export const getTestSeriesBySlug = async (req, res) => {
         "fullName username email profilePicture specialization"
       )
       .populate("enrolledStudents", "fullName email")
-      .populate("tests", "title description duration totalMarks")
+      .populate("tests", "title description duration totalMarks questions")
       .populate("courseId", "title slug");
 
     if (!testSeries) {
