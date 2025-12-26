@@ -309,10 +309,10 @@ export const getAllStudents = async (req, res) => {
             const specializationList = Array.isArray(student?.specialization)
               ? student.specialization.filter(Boolean)
               : student?.specialization
-                ? [student.specialization]
-                : student?.examPreference
-                  ? [student.examPreference]
-                  : [];
+              ? [student.specialization]
+              : student?.examPreference
+              ? [student.examPreference]
+              : [];
 
             const totalCourses = Array.isArray(student?.courses)
               ? student.courses.length
@@ -474,19 +474,25 @@ export const getAllCourses = async (req, res) => {
             }
 
             const educator = course?.educatorID;
-            const educatorName = educator?.fullName || educator?.username || educator?.email || "Unknown";
+            const educatorName =
+              educator?.fullName ||
+              educator?.username ||
+              educator?.email ||
+              "Unknown";
 
             const subjectList = Array.isArray(course?.subject)
               ? course.subject.filter(Boolean)
               : course?.subject
-                ? [course.subject]
-                : [];
+              ? [course.subject]
+              : [];
 
             const enrolledCount = Array.isArray(course?.enrolledStudents)
               ? course.enrolledStudents.length
               : Number(course?.enrolledCount ?? 0);
 
-            const fees = Number.isFinite(Number(course?.fees)) ? Number(course.fees) : 0;
+            const fees = Number.isFinite(Number(course?.fees))
+              ? Number(course.fees)
+              : 0;
             const status = course?.isActive === false ? "inactive" : "active";
 
             return {
@@ -616,8 +622,8 @@ export const getAllTests = async (req, res) => {
             const subjectList = Array.isArray(test?.subjects)
               ? test.subjects.filter(Boolean)
               : test?.subjects
-                ? [test.subjects]
-                : [];
+              ? [test.subjects]
+              : [];
 
             const durationMinutes = Number.isFinite(Number(test?.duration))
               ? Number(test.duration)
@@ -634,8 +640,8 @@ export const getAllTests = async (req, res) => {
             const enrolledCount = Array.isArray(test?.enrolledStudents)
               ? test.enrolledStudents.length
               : Array.isArray(test?.attempts)
-                ? test.attempts.length
-                : Number(test?.enrolled ?? 0);
+              ? test.attempts.length
+              : Number(test?.enrolled ?? 0);
 
             return {
               id,
@@ -722,7 +728,11 @@ export const getAllTestSeries = async (req, res) => {
             }
 
             const educator = series?.educatorId;
-            const educatorName = educator?.fullName || educator?.username || educator?.email || "Unknown";
+            const educatorName =
+              educator?.fullName ||
+              educator?.username ||
+              educator?.email ||
+              "Unknown";
 
             const testsCount = Array.isArray(series?.tests)
               ? series.tests.length
@@ -732,7 +742,9 @@ export const getAllTestSeries = async (req, res) => {
               ? series.enrolledStudents.length
               : Number(series?.enrolledCount ?? 0);
 
-            const price = Number.isFinite(Number(series?.price)) ? Number(series.price) : 0;
+            const price = Number.isFinite(Number(series?.price))
+              ? Number(series.price)
+              : 0;
 
             return {
               id,
@@ -818,20 +830,28 @@ export const getAllWebinars = async (req, res) => {
             }
 
             const educator = webinar?.educatorID;
-            const educatorName = educator?.fullName || educator?.username || educator?.email || "Unknown";
+            const educatorName =
+              educator?.fullName ||
+              educator?.username ||
+              educator?.email ||
+              "Unknown";
 
             const subjectList = Array.isArray(webinar?.subject)
               ? webinar.subject.filter(Boolean)
               : webinar?.subject
-                ? [webinar.subject]
-                : [];
+              ? [webinar.subject]
+              : [];
 
             const enrolledCount = Array.isArray(webinar?.studentEnrolled)
               ? webinar.studentEnrolled.length
               : Number(webinar?.enrolledCount ?? 0);
 
-            const capacity = Number.isFinite(Number(webinar?.seatLimit)) ? Number(webinar.seatLimit) : 0;
-            const fees = Number.isFinite(Number(webinar?.fees)) ? Number(webinar.fees) : 0;
+            const capacity = Number.isFinite(Number(webinar?.seatLimit))
+              ? Number(webinar.seatLimit)
+              : 0;
+            const fees = Number.isFinite(Number(webinar?.fees))
+              ? Number(webinar.fees)
+              : 0;
 
             return {
               id,
@@ -919,6 +939,19 @@ export const deleteWebinar = async (req, res) => {
 // Get platform-wide analytics
 export const getPlatformAnalytics = async (req, res) => {
   try {
+    const { range } = req.query;
+
+    const RANGE_TO_DAYS = {
+      "7d": 7,
+      "30d": 30,
+      "365d": 365,
+      "1y": 365,
+    };
+
+    const lookbackDays = RANGE_TO_DAYS[String(range)] || 7;
+    const rangeLabel =
+      range && RANGE_TO_DAYS[String(range)] ? String(range) : "7d";
+
     // Count totals
     const totalEducators = await Educator.countDocuments({ status: "active" });
     const totalStudents = await Student.countDocuments({ isActive: true });
@@ -945,20 +978,20 @@ export const getPlatformAnalytics = async (req, res) => {
       { $group: { _id: "$class", count: { $sum: 1 } } },
     ]);
 
-    // Recent activity (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // Recent activity for selected range
+    const rangeStart = new Date();
+    rangeStart.setDate(rangeStart.getDate() - lookbackDays);
 
     const recentEducators = await Educator.countDocuments({
-      createdAt: { $gte: sevenDaysAgo },
+      createdAt: { $gte: rangeStart },
     });
 
     const recentStudents = await Student.countDocuments({
-      createdAt: { $gte: sevenDaysAgo },
+      createdAt: { $gte: rangeStart },
     });
 
     const recentCourses = await Course.countDocuments({
-      createdAt: { $gte: sevenDaysAgo },
+      createdAt: { $gte: rangeStart },
     });
 
     // Top educators by followers
@@ -988,6 +1021,7 @@ export const getPlatformAnalytics = async (req, res) => {
           educators: recentEducators,
           students: recentStudents,
           courses: recentCourses,
+          range: rangeLabel,
         },
         topEducators,
       },

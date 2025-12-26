@@ -34,8 +34,9 @@ const server = createServer(APP);
 
 // Initialize Socket.io with CORS configuration
 const allowedOrigins = [
-  process.env.NEXT_PUBLIC_DASHBOARD_URL,
+  process.env.NEXT_PUBLIC_EDUCATOR_DASHBOARD_URL,
   process.env.NEXT_PUBLIC_WEB_URL,
+  process.env.NEXT_PUBLIC_SUPER_DASHBOARD_URL,
   // Development fallbacks
   "http://localhost:3000",
   "http://localhost:3001",

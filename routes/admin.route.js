@@ -14,6 +14,13 @@ import {
   getAllTests,
   getAllTestSeries,
 } from "../controllers/admin.controller.js";
+import { getAllLiveClasses } from "../controllers/liveClass.controller.js";
+import {
+  getRevenueSummary,
+  getRevenueByMonth,
+  getRevenueByType,
+  getRevenueTransactions,
+} from "../controllers/revenue.controller.js";
 import { authenticateAdmin } from "../middleware/auth.middleware.js";
 import { body, param } from "express-validator";
 
@@ -183,6 +190,12 @@ router.delete(
  */
 router.get("/analytics", getPlatformAnalytics);
 
+// ==================== Revenue & Payments ====================
+router.get("/revenue/summary", getRevenueSummary);
+router.get("/revenue/by-month", getRevenueByMonth);
+router.get("/revenue/by-type", getRevenueByType);
+router.get("/revenue/transactions", getRevenueTransactions);
+
 // ==================== Test Management Routes ====================
 
 /**
@@ -214,5 +227,22 @@ router.get("/tests", getAllTests);
  * }
  */
 router.get("/test-series", getAllTestSeries);
+
+// ==================== Live Classes Management Routes ====================
+
+/**
+ * @route   GET /api/admin/live-classes
+ * @desc    Get all live classes across all educators
+ * @access  Private (Admin only)
+ * @query   {
+ *   page?: number (default: 1),
+ *   limit?: number (default: 20),
+ *   search?: string,
+ *   subject?: string,
+ *   sortBy?: string (default: "createdAt"),
+ *   sortOrder?: "asc" | "desc" (default: "desc")
+ * }
+ */
+router.get("/live-classes", getAllLiveClasses);
 
 export default router;
