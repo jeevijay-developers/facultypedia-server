@@ -1,5 +1,6 @@
 import { body, param, query } from "express-validator";
 import { STUDY_MATERIAL_FILE_TYPES } from "./constants.js";
+import { isVimeoEmbedUrl } from "./vimeo.js";
 import {
   MAX_STUDY_MATERIAL_FILE_SIZE,
   determineStudyMaterialFileType,
@@ -250,6 +251,23 @@ export const validateURL = (field, isOptional = true) => {
   return validator.notEmpty().withMessage(`${field} is required`);
 };
 
+export const validateVimeoEmbed = (field = "introVideo", isOptional = true) => {
+  const validator = body(field).custom((value) => {
+    if (!isVimeoEmbedUrl(value)) {
+      throw new Error(
+        `${field} must be a Vimeo embed URL (https://player.vimeo.com/video/{id})`
+      );
+    }
+    return true;
+  });
+
+  if (isOptional) {
+    return [validator.optional({ checkFalsy: true })];
+  }
+
+  return [validator.notEmpty().withMessage(`${field} is required`)];
+};
+
 // Validate username field
 export const validateUsernameField = (isOptional = false) => {
   const validator = body("username")
@@ -414,9 +432,7 @@ export const educatorSignupValidation = [
         (item) => item && !VALID_SPECIALIZATIONS.includes(item)
       );
       if (invalidValues.length) {
-        throw new Error(
-          `Invalid specialization: ${invalidValues.join(", ")}`
-        );
+        throw new Error(`Invalid specialization: ${invalidValues.join(", ")}`);
       }
       return true;
     }),
@@ -2256,9 +2272,7 @@ export const validateCourseType = (isOptional = false) => {
       return value;
     })
     .isIn(VALID_COURSE_TYPES)
-    .withMessage(
-      "Course type must be either one-to-one or one-to-all"
-    );
+    .withMessage("Course type must be either one-to-one or one-to-all");
 
   return isOptional
     ? validator.optional()
@@ -2365,12 +2379,7 @@ export const validateCourseThumbnail = [
 ];
 
 // Validate intro video
-export const validateIntroVideo = [
-  body("introVideo")
-    .optional()
-    .isURL()
-    .withMessage("Intro video must be a valid URL"),
-];
+export const validateIntroVideo = [...validateVimeoEmbed("introVideo", true)];
 
 // Validate videos array
 export const validateVideos = [
@@ -2657,7 +2666,9 @@ export const validateVideoLinks = (isOptional = false) => [
       }
       return normalized;
     })
-    .custom((links) => validateVideoLinksArray(links, { optional: isOptional })),
+    .custom((links) =>
+      validateVideoLinksArray(links, { optional: isOptional })
+    ),
 ];
 
 const parseVideoCourseSpecificFlag = (value) =>
@@ -2675,7 +2686,9 @@ export const validateVideoCourseId = [
   body("courseId")
     .optional({ nullable: true })
     .custom((value, { req }) => {
-      const requiresCourse = parseVideoCourseSpecificFlag(req.body?.isCourseSpecific);
+      const requiresCourse = parseVideoCourseSpecificFlag(
+        req.body?.isCourseSpecific
+      );
 
       if (requiresCourse && !value) {
         throw new Error("courseId is required when isCourseSpecific is true");
@@ -2692,7 +2705,9 @@ export const validateVideoCourseId = [
       return true;
     })
     .customSanitizer((value, { req }) => {
-      const requiresCourse = parseVideoCourseSpecificFlag(req.body?.isCourseSpecific);
+      const requiresCourse = parseVideoCourseSpecificFlag(
+        req.body?.isCourseSpecific
+      );
       return requiresCourse ? value : undefined;
     }),
 ];
@@ -3089,25 +3104,26 @@ export const validateStudyMaterialEducatorId = [
 
 export const validateStudyMaterialTitle = (isOptional = false) => {
   const validator = body("title")
-      .customSanitizer((value, { req }) => {
-        if (
-          (value === null || typeof value === "undefined" ||
-            (Array.isArray(value) && value.length === 0)) &&
-          req?.body
-        ) {
-          const fallbackKey = Object.keys(req.body).find(
-            (key) => key !== "title" && key.toLowerCase() === "title"
-          );
+    .customSanitizer((value, { req }) => {
+      if (
+        (value === null ||
+          typeof value === "undefined" ||
+          (Array.isArray(value) && value.length === 0)) &&
+        req?.body
+      ) {
+        const fallbackKey = Object.keys(req.body).find(
+          (key) => key !== "title" && key.toLowerCase() === "title"
+        );
 
-          if (fallbackKey) {
-            value = req.body[fallbackKey];
-            req.body.title = value;
-            delete req.body[fallbackKey];
-          }
+        if (fallbackKey) {
+          value = req.body[fallbackKey];
+          req.body.title = value;
+          delete req.body[fallbackKey];
         }
+      }
 
-        return normalizeSingleValue(value);
-      })
+      return normalizeSingleValue(value);
+    })
     .trim()
     .isLength({ min: 3, max: 200 })
     .withMessage("Title must be between 3 and 200 characters");
@@ -3127,67 +3143,63 @@ export const validateStudyMaterialDescription = (isOptional = true) => {
 };
 
 export const validateStudyMaterialDocs = (isOptional = false) =>
-  body("uploadedDocs")
-    .custom((_, { req }) => {
-      const files = req.files || [];
+  body("uploadedDocs").custom((_, { req }) => {
+    const files = req.files || [];
 
-      if (!files.length) {
-        if (isOptional) {
-          return true;
-        }
-        throw new Error("At least one study material file must be uploaded");
+    if (!files.length) {
+      if (isOptional) {
+        return true;
+      }
+      throw new Error("At least one study material file must be uploaded");
+    }
+
+    files.forEach((file, index) => {
+      if (!file || typeof file !== "object") {
+        throw new Error(`File payload missing at index ${index}`);
       }
 
-      files.forEach((file, index) => {
-        if (!file || typeof file !== "object") {
-          throw new Error(`File payload missing at index ${index}`);
-        }
+      const hasBinaryPayload = Boolean(file.buffer?.length);
+      const hasUploadedUrl = Boolean(file.path || file.secure_url);
+      const hasFileName = Boolean(file.originalname || file.filename);
 
-        const hasBinaryPayload = Boolean(file.buffer?.length);
-        const hasUploadedUrl = Boolean(file.path || file.secure_url);
-        const hasFileName = Boolean(file.originalname || file.filename);
+      if ((!hasBinaryPayload && !hasUploadedUrl) || !hasFileName) {
+        throw new Error(`Invalid file payload at index ${index}`);
+      }
 
-        if ((!hasBinaryPayload && !hasUploadedUrl) || !hasFileName) {
-          throw new Error(`Invalid file payload at index ${index}`);
-        }
+      const displayName =
+        file.originalname || file.filename || `study-material-${index + 1}`;
 
-        const displayName =
-          file.originalname || file.filename || `study-material-${index + 1}`;
+      const sizeInBytes =
+        typeof file.size === "number"
+          ? file.size
+          : typeof file.bytes === "number"
+          ? file.bytes
+          : file.buffer?.length || 0;
 
-        const sizeInBytes =
-          typeof file.size === "number"
-            ? file.size
-            : typeof file.bytes === "number"
-            ? file.bytes
-            : file.buffer?.length || 0;
-
-        if (sizeInBytes > MAX_STUDY_MATERIAL_FILE_SIZE) {
-          const sizeInMb = Math.round(
-            (MAX_STUDY_MATERIAL_FILE_SIZE / (1024 * 1024)) * 10
-          ) / 10;
-          throw new Error(
-            `${displayName} exceeds the allowed ${sizeInMb} MB limit`
-          );
-        }
-
-        const detectedType = determineStudyMaterialFileType(
-          file.originalname || file.filename,
-          file.mimetype
+      if (sizeInBytes > MAX_STUDY_MATERIAL_FILE_SIZE) {
+        const sizeInMb =
+          Math.round((MAX_STUDY_MATERIAL_FILE_SIZE / (1024 * 1024)) * 10) / 10;
+        throw new Error(
+          `${displayName} exceeds the allowed ${sizeInMb} MB limit`
         );
+      }
 
-        if (!STUDY_MATERIAL_FILE_TYPES.includes(detectedType)) {
-          throw new Error(
-            `${displayName} has an unsupported file type`
-          );
-        }
+      const detectedType = determineStudyMaterialFileType(
+        file.originalname || file.filename,
+        file.mimetype
+      );
 
-        if (detectedType !== "PDF") {
-          throw new Error(`${displayName} must be a PDF document`);
-        }
-      });
+      if (!STUDY_MATERIAL_FILE_TYPES.includes(detectedType)) {
+        throw new Error(`${displayName} has an unsupported file type`);
+      }
 
-      return true;
+      if (detectedType !== "PDF") {
+        throw new Error(`${displayName} must be a PDF document`);
+      }
     });
+
+    return true;
+  });
 
 export const validateStudyMaterialTags = [
   body("tags")
@@ -3219,15 +3231,14 @@ const studyMaterialRequiresCourse = (req) => {
 };
 
 export const validateStudyMaterialCourseId = [
-  body("courseId")
-    .custom((value, { req }) => {
-      if (studyMaterialRequiresCourse(req) && !value) {
-        throw new Error(
-          "courseId is required when the study material is course-specific"
-        );
-      }
-      return true;
-    }),
+  body("courseId").custom((value, { req }) => {
+    if (studyMaterialRequiresCourse(req) && !value) {
+      throw new Error(
+        "courseId is required when the study material is course-specific"
+      );
+    }
+    return true;
+  }),
   body("courseId")
     .optional({ nullable: true })
     .isMongoId()
@@ -3323,48 +3334,66 @@ export const validateLiveClassFee = (optional = false) => {
 
 // Subject validation for live class
 export const validateLiveClassSubject = (optional = false) => {
-  const validator = body("subject")
-    .custom((value, { req }) => {
-      const normalized = (Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
-        .map((entry) => (typeof entry === "string" ? entry.trim().toLowerCase() : ""))
-        .filter((entry) => Boolean(entry));
+  const validator = body("subject").custom((value, { req }) => {
+    const normalized = (
+      Array.isArray(value)
+        ? value
+        : typeof value === "string"
+        ? value.split(",")
+        : []
+    )
+      .map((entry) =>
+        typeof entry === "string" ? entry.trim().toLowerCase() : ""
+      )
+      .filter((entry) => Boolean(entry));
 
-      if (!normalized.length) {
-        throw new Error("At least one subject is required");
-      }
+    if (!normalized.length) {
+      throw new Error("At least one subject is required");
+    }
 
-      const invalid = normalized.filter((entry) => !VALID_SUBJECTS.includes(entry));
-      if (invalid.length) {
-        throw new Error(`Invalid subject(s): ${invalid.join(", ")}`);
-      }
+    const invalid = normalized.filter(
+      (entry) => !VALID_SUBJECTS.includes(entry)
+    );
+    if (invalid.length) {
+      throw new Error(`Invalid subject(s): ${invalid.join(", ")}`);
+    }
 
-      req.body.subject = normalized;
-      return true;
-    });
+    req.body.subject = normalized;
+    return true;
+  });
 
   return optional ? validator.optional() : validator;
 };
 
 // Live class specification validation
 export const validateLiveClassSpecification = (optional = false) => {
-  const validator = body("liveClassSpecification")
-    .custom((value, { req }) => {
-      const normalized = (Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
-        .map((entry) => (typeof entry === "string" ? entry.trim().toUpperCase() : ""))
-        .filter((entry) => Boolean(entry));
+  const validator = body("liveClassSpecification").custom((value, { req }) => {
+    const normalized = (
+      Array.isArray(value)
+        ? value
+        : typeof value === "string"
+        ? value.split(",")
+        : []
+    )
+      .map((entry) =>
+        typeof entry === "string" ? entry.trim().toUpperCase() : ""
+      )
+      .filter((entry) => Boolean(entry));
 
-      if (!normalized.length) {
-        throw new Error("At least one specialization is required");
-      }
+    if (!normalized.length) {
+      throw new Error("At least one specialization is required");
+    }
 
-      const invalid = normalized.filter((entry) => !VALID_SPECIALIZATIONS.includes(entry));
-      if (invalid.length) {
-        throw new Error(`Invalid specialization(s): ${invalid.join(", ")}`);
-      }
+    const invalid = normalized.filter(
+      (entry) => !VALID_SPECIALIZATIONS.includes(entry)
+    );
+    if (invalid.length) {
+      throw new Error(`Invalid specialization(s): ${invalid.join(", ")}`);
+    }
 
-      req.body.liveClassSpecification = normalized;
-      return true;
-    });
+    req.body.liveClassSpecification = normalized;
+    return true;
+  });
 
   return optional ? validator.optional() : validator;
 };

@@ -156,6 +156,12 @@ const courseSchema = new mongoose.Schema({
     required: false,
     trim: true,
   },
+  introVideoVimeoUri: {
+    type: String,
+    required: false,
+    trim: true,
+    default: "",
+  },
   studyMaterials: [
     {
       title: {
@@ -314,10 +320,10 @@ courseSchema.statics.findByEducator = function (educatorId) {
 
 // Static method to find courses by specialization
 courseSchema.statics.findBySpecialization = function (specialization) {
-  return this.find({ 
-    specialization: { 
-      $in: Array.isArray(specialization) ? specialization : [specialization] 
-    }, 
+  return this.find({
+    specialization: {
+      $in: Array.isArray(specialization) ? specialization : [specialization],
+    },
     isActive: true,
     status: { $ne: "deleted" },
   });
@@ -325,10 +331,10 @@ courseSchema.statics.findBySpecialization = function (specialization) {
 
 // Static method to find courses by subject
 courseSchema.statics.findBySubject = function (subject) {
-  return this.find({ 
-    subject: { 
-      $in: Array.isArray(subject) ? subject : [subject] 
-    }, 
+  return this.find({
+    subject: {
+      $in: Array.isArray(subject) ? subject : [subject],
+    },
     isActive: true,
     status: { $ne: "deleted" },
   });
@@ -336,10 +342,10 @@ courseSchema.statics.findBySubject = function (subject) {
 
 // Static method to find courses by class
 courseSchema.statics.findByClass = function (className) {
-  return this.find({ 
-    class: { 
-      $in: Array.isArray(className) ? className : [className] 
-    }, 
+  return this.find({
+    class: {
+      $in: Array.isArray(className) ? className : [className],
+    },
     isActive: true,
     status: { $ne: "deleted" },
   });
@@ -386,7 +392,9 @@ courseSchema.statics.findUpcoming = function () {
 
 // Virtual to get enrolled student count
 courseSchema.virtual("enrolledCount").get(function () {
-  return Array.isArray(this.enrolledStudents) ? this.enrolledStudents.length : 0;
+  return Array.isArray(this.enrolledStudents)
+    ? this.enrolledStudents.length
+    : 0;
 });
 
 // Virtual to get purchase count

@@ -122,6 +122,11 @@ const educatorSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    introVideoVimeoUri: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     slug: {
       type: String,
       unique: true,
@@ -356,7 +361,8 @@ const educatorSchema = new mongoose.Schema(
   }
 );
 
-educatorSchema.virtual("introVideoLink")
+educatorSchema
+  .virtual("introVideoLink")
   .get(function () {
     return this.introVideo;
   })
@@ -385,9 +391,7 @@ educatorSchema.pre("validate", function (next) {
   if (!this.firstName && this.fullName) {
     const [first = "", ...rest] = this.fullName.trim().split(/\s+/);
     this.firstName = first ? first.trim() : undefined;
-    this.lastName = rest.length
-      ? rest.join(" ").trim()
-      : this.lastName;
+    this.lastName = rest.length ? rest.join(" ").trim() : this.lastName;
   }
 
   next();

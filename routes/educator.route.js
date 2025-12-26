@@ -1,4 +1,7 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
 const router = express.Router();
 
 import {
@@ -20,6 +23,8 @@ import {
   updateEducatorRevenue,
   getTopRatedEducators,
   getEducatorStatistics,
+  uploadEducatorIntroVideo,
+  getEducatorIntroVideoStatus,
 } from "../controllers/educator.controller.js";
 import { signupEducator as createEducatorProfile } from "../controllers/auth.controller.js";
 
@@ -35,6 +40,7 @@ import {
   validateClass,
   validateMobileNumber,
   validateURL,
+  validateVimeoEmbed,
   validatePayPerHourFee,
   validateSubject,
   validateStatus,
@@ -48,6 +54,31 @@ import {
   validateRatingParam,
 } from "../util/validation.js";
 
+const ensureUploadDir = () => {
+  const uploadDir = path.join(process.cwd(), "tmp", "uploads");
+  fs.mkdirSync(uploadDir, { recursive: true });
+  return uploadDir;
+};
+
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      try {
+        cb(null, ensureUploadDir());
+      } catch (error) {
+        cb(error, "");
+      }
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file?.originalname || "");
+      cb(null, `${Date.now()}-${file.fieldname}${ext}`);
+    },
+  }),
+  limits: {
+    fileSize: 500 * 1024 * 1024,
+  },
+});
+
 // Validation middleware for updating educator
 const updateEducatorValidation = [
   ...validateObjectId(),
@@ -59,7 +90,7 @@ const updateEducatorValidation = [
   validateClass(true),
   validateMobileNumber(true),
   validateURL("profilePicture"),
-  validateURL("introVideo"),
+  ...validateVimeoEmbed("introVideo"),
   validatePayPerHourFee(true),
   validateSubject(true),
   validateStatus[0],
@@ -69,7 +100,11 @@ const updateEducatorValidation = [
 const followerValidation = [...validateObjectId(), ...validateStudentId];
 
 // Validation middleware for rating
-const ratingValidation = [...validateObjectId(), ...validateStudentId, ...validateRating];
+const ratingValidation = [
+  ...validateObjectId(),
+  ...validateStudentId,
+  ...validateRating,
+];
 
 // Validation middleware for revenue update
 const revenueValidation = [...validateObjectId(), ...validateRevenue];
@@ -118,6 +153,21 @@ router.get("/:id/followers", validateObjectId(), getEducatorFollowers);
 
 // GET /api/educators/:id/statistics - Get educator statistics
 router.get("/:id/statistics", validateObjectId(), getEducatorStatistics);
+
+// POST /api/educators/:id/intro-video/upload - Upload intro video to Vimeo
+router.post(
+  "/:id/intro-video/upload",
+  validateObjectId(),
+  videoUpload.single("video"),
+  uploadEducatorIntroVideo
+);
+
+// GET /api/educators/:id/intro-video/status - Poll Vimeo transcode status
+router.get(
+  "/:id/intro-video/status",
+  validateObjectId(),
+  getEducatorIntroVideoStatus
+);
 
 // POST /api/educators/:id/followers - Add follower to educator
 router.post("/:id/followers", followerValidation, addFollower);

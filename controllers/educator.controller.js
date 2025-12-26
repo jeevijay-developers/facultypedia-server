@@ -1,5 +1,7 @@
-import Educator from "../models/educator.js";
+import fs from "fs/promises";
 import { validationResult } from "express-validator";
+import Educator from "../models/educator.js";
+import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
 
 // Get all educators with filtering and pagination
 export const getAllEducators = async (req, res) => {
@@ -115,17 +117,17 @@ export const getEducatorById = async (req, res) => {
       .populate({
         path: "courses",
         select: "title description slug fees image duration",
-        options: { strictPopulate: false }
+        options: { strictPopulate: false },
       })
       .populate({
         path: "webinars",
         select: "title description slug scheduledDate duration fees",
-        options: { strictPopulate: false }
+        options: { strictPopulate: false },
       })
       .populate({
         path: "testSeries",
         select: "title description slug totalTests",
-        options: { strictPopulate: false }
+        options: { strictPopulate: false },
       });
 
     if (!educator) {
@@ -695,11 +697,7 @@ export const updateEducatorRating = async (req, res) => {
 
     const numericRating = Number(rating);
 
-    if (
-      Number.isNaN(numericRating) ||
-      numericRating < 0 ||
-      numericRating > 5
-    ) {
+    if (Number.isNaN(numericRating) || numericRating < 0 || numericRating > 5) {
       return res.status(400).json({
         success: false,
         message: "Rating must be between 0 and 5",
@@ -890,6 +888,124 @@ export const getEducatorStatistics = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const uploadEducatorIntroVideo = async (req, res) => {
+  const cleanup = async () => {
+    if (req.file?.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (_) {
+        // ignore cleanup errors
+      }
+    }
+  };
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Video file is required",
+      });
+    }
+
+    const { id } = req.params;
+    const educator = await Educator.findById(id).select(
+      "fullName username introVideo introVideoVimeoUri"
+    );
+
+    if (!educator) {
+      await cleanup();
+      return res.status(404).json({
+        success: false,
+        message: "Educator not found",
+      });
+    }
+
+    const meta = {
+      name: `${educator.fullName || educator.username} | Intro`,
+      description: "Educator intro video",
+    };
+
+    const result = await uploadVideoAndResolve(req.file.path, meta);
+
+    educator.introVideoVimeoUri = result.uri;
+
+    if (result.embedUrl || result.link) {
+      educator.introVideo = result.embedUrl || result.link;
+    }
+
+    await educator.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Intro video uploaded to Vimeo",
+      data: {
+        introVideo: educator.introVideo,
+        vimeoUri: educator.introVideoVimeoUri,
+        status: result.status,
+        link: result.link,
+        embedUrl: result.embedUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading educator intro video:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to upload intro video",
+      error: error.message,
+    });
+  } finally {
+    await cleanup();
+  }
+};
+
+export const getEducatorIntroVideoStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const educator = await Educator.findById(id).select(
+      "introVideo introVideoVimeoUri fullName username"
+    );
+
+    if (!educator) {
+      return res.status(404).json({
+        success: false,
+        message: "Educator not found",
+      });
+    }
+
+    if (!educator.introVideoVimeoUri) {
+      return res.status(400).json({
+        success: false,
+        message: "No Vimeo intro video found for this educator",
+      });
+    }
+
+    const statusInfo = await getVimeoStatus(educator.introVideoVimeoUri);
+
+    if (statusInfo.embedUrl && statusInfo.embedUrl !== educator.introVideo) {
+      educator.introVideo = statusInfo.embedUrl;
+      await educator.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        status: statusInfo.status,
+        introVideo: educator.introVideo,
+        vimeoUri: educator.introVideoVimeoUri,
+        link: statusInfo.link,
+        embedUrl: statusInfo.embedUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching educator intro video status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch intro video status",
       error: error.message,
     });
   }

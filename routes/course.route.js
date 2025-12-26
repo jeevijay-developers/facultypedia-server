@@ -1,4 +1,7 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
 import {
   createCourse,
   getAllCourses,
@@ -6,6 +9,8 @@ import {
   getCourseBySlug,
   updateCourse,
   deleteCourse,
+  getCourseIntroVideoStatus,
+  uploadCourseIntroVideo,
   getCoursesByEducator,
   getCoursesBySpecialization,
   getCoursesBySubject,
@@ -51,6 +56,31 @@ import {
   validateRating,
 } from "../util/validation.js";
 
+const ensureUploadDir = () => {
+  const uploadDir = path.join(process.cwd(), "tmp", "uploads");
+  fs.mkdirSync(uploadDir, { recursive: true });
+  return uploadDir;
+};
+
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      try {
+        cb(null, ensureUploadDir());
+      } catch (error) {
+        cb(error, "");
+      }
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file?.originalname || "");
+      cb(null, `${Date.now()}-${file.fieldname}${ext}`);
+    },
+  }),
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB cap for intro videos
+  },
+});
+
 const router = express.Router();
 
 // ==================== CRUD Routes ====================
@@ -72,6 +102,21 @@ router.put("/:id", updateCourseValidation, updateCourse);
 
 // Delete course by ID (soft delete)
 router.delete("/:id", validateObjectId("id"), deleteCourse);
+
+// ==================== Intro Video (Vimeo) ====================
+
+router.post(
+  "/:id/intro-video/upload",
+  validateObjectId("id"),
+  videoUpload.single("video"),
+  uploadCourseIntroVideo
+);
+
+router.get(
+  "/:id/intro-video/status",
+  validateObjectId("id"),
+  getCourseIntroVideoStatus
+);
 
 // ==================== Filter Routes ====================
 

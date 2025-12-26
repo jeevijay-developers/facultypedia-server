@@ -1,6 +1,8 @@
+import fs from "fs/promises";
 import { validationResult } from "express-validator";
 import Course from "../models/course.js";
 import notificationService from "../services/notification.service.js";
+import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
 
 // ==================== CRUD Operations ====================
 
@@ -128,6 +130,120 @@ export const createCourse = async (req, res) => {
   }
 };
 
+export const uploadCourseIntroVideo = async (req, res) => {
+  const cleanup = async () => {
+    if (req.file?.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (_) {
+        // ignore cleanup errors
+      }
+    }
+  };
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Video file is required",
+      });
+    }
+
+    const { id } = req.params;
+    const course = await Course.findById(id).select(
+      "title description introVideo introVideoVimeoUri"
+    );
+
+    if (!course) {
+      await cleanup();
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    const meta = {
+      name: `${course.title} | Intro`,
+      description: course.description || undefined,
+    };
+
+    const result = await uploadVideoAndResolve(req.file.path, meta);
+
+    course.introVideoVimeoUri = result.uri;
+    course.introVideo = result.embedUrl || result.link || course.introVideo;
+    await course.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Intro video uploaded to Vimeo",
+      data: {
+        introVideo: course.introVideo,
+        vimeoUri: course.introVideoVimeoUri,
+        status: result.status,
+        link: result.link,
+        embedUrl: result.embedUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading course intro video:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to upload intro video",
+      error: error.message,
+    });
+  } finally {
+    await cleanup();
+  }
+};
+
+export const getCourseIntroVideoStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const course = await Course.findById(id).select(
+      "title introVideo introVideoVimeoUri"
+    );
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    if (!course.introVideoVimeoUri) {
+      return res.status(400).json({
+        success: false,
+        message: "No Vimeo intro video found for this course",
+      });
+    }
+
+    const statusInfo = await getVimeoStatus(course.introVideoVimeoUri);
+
+    if (statusInfo.embedUrl && statusInfo.embedUrl !== course.introVideo) {
+      course.introVideo = statusInfo.embedUrl;
+      await course.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        status: statusInfo.status,
+        introVideo: course.introVideo,
+        vimeoUri: course.introVideoVimeoUri,
+        link: statusInfo.link,
+        embedUrl: statusInfo.embedUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching course intro video status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch intro video status",
+      error: error.message,
+    });
+  }
+};
+
 // Get all courses with filters and pagination
 export const getAllCourses = async (req, res) => {
   try {
@@ -150,20 +266,20 @@ export const getAllCourses = async (req, res) => {
 
     // Apply filters
     if (specialization) {
-      query.specialization = { 
-        $in: Array.isArray(specialization) ? specialization : [specialization] 
+      query.specialization = {
+        $in: Array.isArray(specialization) ? specialization : [specialization],
       };
     }
 
     if (subject) {
-      query.subject = { 
-        $in: Array.isArray(subject) ? subject : [subject] 
+      query.subject = {
+        $in: Array.isArray(subject) ? subject : [subject],
       };
     }
 
     if (className) {
-      query.class = { 
-        $in: Array.isArray(className) ? className : [className] 
+      query.class = {
+        $in: Array.isArray(className) ? className : [className],
       };
     }
 

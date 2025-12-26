@@ -16,6 +16,7 @@ import {
   validateSubject,
   validateClass,
   validatePayPerHourFee,
+  validateVimeoEmbed,
 } from "../util/validation.js";
 import { uploadEducatorImage } from "../config/cloudinary.js";
 import multer from "multer";
@@ -30,10 +31,7 @@ const basicInfoValidation = [
   validateMobileNumber(true),
   body("bio").optional().isLength({ max: 1000 }),
   body("description").optional().isLength({ max: 1000 }),
-  body("introVideoLink")
-    .optional({ checkFalsy: true })
-    .isURL()
-    .withMessage("introVideoLink must be a valid URL"),
+  ...validateVimeoEmbed("introVideoLink", true),
 ];
 
 const workExperienceValidation = [
