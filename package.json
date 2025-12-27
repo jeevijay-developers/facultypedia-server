@@ -22,9 +22,10 @@
   },
   "homepage": "https://github.com/jeevijay-developers/facultypedia-server#readme",
   "dependencies": {
+    "@vimeo/vimeo": "^3.0.3",
     "axios": "^1.13.1",
     "bcrypt": "^6.0.0",
-    "cloudinary": "^2.8.0",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "csv-parse": "^6.1.0",
     "dotenv": "^17.2.3",
@@ -38,6 +39,6 @@
     "nodemon": "^3.1.10",
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.1",
-    "vimeo": "^3.0.3"
+    "vimeo": "^2.3.1"
   }
 }

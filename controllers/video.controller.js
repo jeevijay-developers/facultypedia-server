@@ -1,5 +1,7 @@
 import { validationResult } from "express-validator";
 import Video from "../models/video.js";
+import { uploadVideoAndResolve } from "../util/vimeo.js";
+import fs from "fs";
 
 const normalizeBoolean = (value) =>
   value === true || value === "true" || value === 1 || value === "1";
@@ -50,7 +52,13 @@ export const createVideo = async (req, res) => {
 
 export const getVideos = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, isCourseSpecific, courseId } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      isCourseSpecific,
+      courseId,
+    } = req.query;
 
     const parsedPage = Math.max(1, parseInt(page, 10) || 1);
     const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
@@ -68,10 +76,7 @@ export const getVideos = async (req, res) => {
     }
 
     const [videos, total] = await Promise.all([
-      Video.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parsedLimit),
+      Video.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parsedLimit),
       Video.countDocuments(filter),
     ]);
 
@@ -198,6 +203,78 @@ export const deleteVideo = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Unable to delete video",
+      error: error.message,
+    });
+  }
+};
+
+export const uploadVideoToVimeoController = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No video file uploaded",
+      });
+    }
+
+    const { title, courseId } = req.body;
+    const isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific);
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Video title is required",
+      });
+    }
+
+    // Upload video to Vimeo
+    const vimeoResult = await uploadVideoAndResolve(req.file.path, {
+      name: title,
+      description: `Demo video: ${title}`,
+    });
+
+    // Delete the temporary file
+    try {
+      fs.unlinkSync(req.file.path);
+    } catch (err) {
+      console.error("Error deleting temporary file:", err);
+    }
+
+    // Create video entry in database with Vimeo embed URL
+    const video = await Video.create({
+      title: title.trim(),
+      links: [vimeoResult.embedUrl],
+      isCourseSpecific,
+      courseId: isCourseSpecific ? courseId : undefined,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Video uploaded to Vimeo successfully",
+      data: {
+        video,
+        vimeo: {
+          uri: vimeoResult.uri,
+          status: vimeoResult.status,
+          embedUrl: vimeoResult.embedUrl,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading video to Vimeo:", error);
+
+    // Clean up file on error
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.error("Error deleting temporary file:", err);
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to upload video to Vimeo",
       error: error.message,
     });
   }

@@ -3,6 +3,8 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
 import questionRoutes from "./routes/questions.route.js";
 import webinarRoutes from "./routes/webinar.route.js";
 import educatorRoutes from "./routes/educator.route.js";
@@ -28,6 +30,13 @@ import initializeNotificationSocket from "./sockets/notification.socket.js";
 import { initializeChatNamespace } from "./sockets/chat.socket.js";
 import { initializeStudentEducatorQueryNamespace } from "./sockets/studentEducator.socket.js";
 dotenv.config();
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("Created uploads directory");
+}
 
 const APP = express();
 const server = createServer(APP);
