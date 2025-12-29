@@ -260,9 +260,19 @@ export const getAllCourses = async (req, res) => {
       sortBy = "createdAt",
       sortOrder = "desc",
       status, // ongoing, upcoming, completed
+      includePast,
     } = req.query;
 
     const query = { isActive: true, status: { $ne: "deleted" } };
+    const now = new Date();
+
+    // By default, show only ongoing or upcoming courses
+    if (!status && includePast !== "true") {
+      query.$or = [
+        { startDate: { $gt: now } },
+        { startDate: { $lte: now }, endDate: { $gte: now } },
+      ];
+    }
 
     // Apply filters
     if (specialization) {
@@ -296,7 +306,6 @@ export const getAllCourses = async (req, res) => {
     }
 
     // Status filter
-    const now = new Date();
     if (status === "ongoing") {
       query.startDate = { $lte: now };
       query.endDate = { $gte: now };
