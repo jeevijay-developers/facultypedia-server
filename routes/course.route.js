@@ -91,11 +91,11 @@ router.post("/", createCourseValidation, createCourse);
 // Get all courses with filters
 router.get("/", getAllCourses);
 
+// Get course by slug (place before ID route so it doesn't get captured by :id)
+router.get("/slug/:slug", validateSlug, getCourseBySlug);
+
 // Get course by ID
 router.get("/:id", validateObjectId("id"), getCourseById);
-
-// Get course by slug
-router.get("/slug/:slug", validateSlug, getCourseBySlug);
 
 // Update course by ID
 router.put("/:id", updateCourseValidation, updateCourse);

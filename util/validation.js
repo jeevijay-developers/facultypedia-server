@@ -2378,8 +2378,13 @@ export const validateCourseThumbnail = [
     .withMessage("Course thumbnail must be a valid URL"),
 ];
 
-// Validate intro video
-export const validateIntroVideo = [...validateVimeoEmbed("introVideo", true)];
+// Validate intro video (allow any valid URL, optional)
+export const validateIntroVideo = [
+  body("introVideo")
+    .optional()
+    .isURL()
+    .withMessage("Intro video must be a valid URL"),
+];
 
 // Validate videos array
 export const validateVideos = [
