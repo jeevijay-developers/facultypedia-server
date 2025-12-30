@@ -14,6 +14,7 @@ import {
     getStudentsBySpecialization,
     getStudentsByClass,
     getStudentNotifications,
+    getEducatorEnrolledStudents,
     updatePassword
 } from "../controllers/student.controller.js";
 
@@ -29,6 +30,7 @@ import {
   studentFollowValidation,
   studentWebinarValidation,
   validateId,
+  validateEducatorIdParam,
 } from "../util/validation.js";
 
 const router = Router();
@@ -71,6 +73,13 @@ router.post("/", createStudentValidation, createStudent);
  * }
  */
 router.get("/", studentQueryValidation, getAllStudents);
+
+// Get enrolled students for an educator
+router.get(
+  "/educator/:educatorId/enrolled",
+  validateEducatorIdParam,
+  getEducatorEnrolledStudents
+);
 
 /**
  * @route   GET /api/students/:id
