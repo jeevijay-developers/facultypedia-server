@@ -46,11 +46,6 @@ const allowedOrigins = [
   process.env.NEXT_PUBLIC_EDUCATOR_DASHBOARD_URL,
   process.env.NEXT_PUBLIC_WEB_URL,
   process.env.NEXT_PUBLIC_SUPER_DASHBOARD_URL,
-  // Development fallbacks
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:3002",
-  "http://localhost:5173",
 ].filter(Boolean);
 
 const io = new Server(server, {

@@ -6,9 +6,11 @@ import {
   sendMessage,
   markMessageAsRead,
   getUnreadCount,
+  uploadChatImage,
 } from "../controllers/chat.controller.js";
 import { authenticateAdminOrEducator } from "../middleware/auth.middleware.js";
 import { body, param } from "express-validator";
+import { uploadGenericImage } from "../config/cloudinary.js";
 
 const router = express.Router();
 
@@ -55,6 +57,18 @@ router.get(
   "/conversations/:id/messages",
   [param("id").isMongoId().withMessage("Invalid conversation ID")],
   getMessages
+);
+
+/**
+ * @route   POST /api/chat/upload/image
+ * @desc    Upload chat image (Option A: images only)
+ * @access  Private (Admin or Educator)
+ * @body    form-data { image: File }
+ */
+router.post(
+  "/upload/image",
+  uploadGenericImage.single("image"),
+  uploadChatImage
 );
 
 /**

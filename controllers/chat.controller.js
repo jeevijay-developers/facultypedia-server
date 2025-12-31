@@ -5,6 +5,47 @@ import Admin from "../models/admin.js";
 
 const chatService = ChatService.getInstance();
 
+// Upload chat image (Option A: images only)
+export const uploadChatImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided",
+      });
+    }
+
+    const url = req.file.path || req.file.secure_url;
+
+    if (!url) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve uploaded image URL",
+      });
+    }
+
+    const attachment = {
+      url,
+      type: "image",
+      filename: req.file.originalname || req.file.filename,
+      size: req.file.size,
+    };
+
+    return res.status(201).json({
+      success: true,
+      message: "Image uploaded successfully",
+      data: { attachment },
+    });
+  } catch (error) {
+    console.error("Error uploading chat image:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to upload image",
+      error: error.message,
+    });
+  }
+};
+
 // Get all conversations for current user
 export const getConversations = async (req, res) => {
   try {
@@ -297,4 +338,5 @@ export default {
   sendMessage,
   markMessageAsRead,
   getUnreadCount,
+  uploadChatImage,
 };
