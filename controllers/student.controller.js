@@ -895,6 +895,126 @@ export const getStudentNotifications = async (req, res) => {
     }
 };
 
+// Get enrolled students for an educator
+export const getEducatorEnrolledStudents = async (req, res) => {
+    try {
+        const { educatorId } = req.params;
+
+        const courses = await Course.find({
+            educatorID: educatorId,
+            isActive: true,
+            status: { $ne: "deleted" },
+        })
+            .select("_id title courseType fees discount enrolledStudents")
+            .lean();
+
+        if (!courses || courses.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: "No courses found for this educator",
+                data: [],
+            });
+        }
+
+        const courseIds = courses.map((course) => course._id.toString());
+        const courseMap = new Map(
+            courses.map((course) => [course._id.toString(), course])
+        );
+
+        const enrolledStudentIds = new Set();
+        courses.forEach((course) => {
+            (course.enrolledStudents || []).forEach((studentId) => {
+                enrolledStudentIds.add(studentId.toString());
+            });
+        });
+
+        const students = await Student.find({
+            isActive: true,
+            $or: [
+                { "courses.courseId": { $in: courseIds } },
+                { _id: { $in: Array.from(enrolledStudentIds) } },
+            ],
+        })
+            .select(
+                "name email mobileNumber username specialization class address image joinedAt isEmailVerified courses"
+            )
+            .lean();
+
+        const studentMap = new Map(
+            students.map((student) => [student._id.toString(), student])
+        );
+
+        const seen = new Set();
+        const normalizeCourseType = (courseType) =>
+            courseType === "one-to-one" || courseType === "OTO" ? "OTO" : "OTA";
+        const calcAmountPaid = (fees = 0, discount = 0) =>
+            Math.max(0, Math.round(fees * (1 - discount / 100)));
+
+        const enrollments = [];
+
+        const addEnrollment = (studentId, courseId) => {
+            const key = `${studentId}-${courseId}`;
+            if (seen.has(key)) return;
+
+            const student = studentMap.get(studentId);
+            const course = courseMap.get(courseId);
+            if (!student || !course) return;
+
+            const discount = typeof course.discount === "number" ? course.discount : 0;
+
+            enrollments.push({
+                _id: student._id,
+                name: student.name,
+                email: student.email,
+                mobileNumber: student.mobileNumber,
+                username: student.username,
+                specialization: student.specialization,
+                class: student.class,
+                address: student.address,
+                image: student.image,
+                joinedAt: student.joinedAt,
+                isEmailVerified: student.isEmailVerified,
+                courseId,
+                courseTitle: course.title,
+                courseType: normalizeCourseType(course.courseType),
+                courseFees: course.fees || 0,
+                courseDiscount: discount,
+                amountPaid: calcAmountPaid(course.fees || 0, discount),
+            });
+
+            seen.add(key);
+        };
+
+        students.forEach((student) => {
+            (student.courses || []).forEach((courseEntry) => {
+                const courseId = courseEntry?.courseId?.toString();
+                if (!courseId || !courseMap.has(courseId)) return;
+                addEnrollment(student._id.toString(), courseId);
+            });
+        });
+
+        courses.forEach((course) => {
+            const courseId = course._id.toString();
+            (course.enrolledStudents || []).forEach((studentId) => {
+                addEnrollment(studentId.toString(), courseId);
+            });
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Enrolled students fetched successfully",
+            data: enrollments,
+        });
+    } catch (error) {
+        console.error("Error fetching enrolled students by educator:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
 // Update student password
 export const updatePassword = async (req, res) => {
   try {
@@ -953,6 +1073,7 @@ export default {
     getStudentsBySpecialization,
     getStudentsByClass,
     getStudentNotifications,
+    getEducatorEnrolledStudents,
     updatePassword
 };
 

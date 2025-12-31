@@ -14,6 +14,7 @@ import {
   getStudentsBySpecialization,
   getStudentsByClass,
   getStudentNotifications,
+  getEducatorEnrolledStudents,
   updatePassword,
 } from "../controllers/student.controller.js";
 
@@ -29,6 +30,7 @@ import {
   studentFollowValidation,
   studentWebinarValidation,
   validateId,
+  validateEducatorIdParam,
 } from "../util/validation.js";
 
 const router = Router();
@@ -37,6 +39,12 @@ router.post("/", createStudentValidation, createStudent);
 
 router.get("/", studentQueryValidation, getAllStudents);
 
+/**
+ * @route   GET /api/students/:id
+ * @desc    Get student by ID
+ * @access  Public
+ * @param   id - Student ObjectId
+ */
 router.get("/:id", validateId, getStudentById);
 
 router.get(
