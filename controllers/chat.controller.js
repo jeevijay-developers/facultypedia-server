@@ -190,6 +190,61 @@ export const getMessages = async (req, res) => {
   }
 };
 
+// Mark all messages in a conversation as read for the current user
+export const markConversationAsRead = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const { id } = req.params;
+    const userId = req.auth.userId;
+    const userType = req.auth.userType === "admin" ? "Admin" : "Educator";
+
+    const conversation = await Conversation.findById(id);
+
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Conversation not found",
+      });
+    }
+
+    const isParticipant = conversation.participants.some(
+      (p) => p.userId.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not a participant in this conversation",
+      });
+    }
+
+    await chatService.markAllAsReadInConversation(id, userId);
+
+    const unreadCount = await chatService.getUnreadCount(userId, userType);
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation marked as read",
+      data: { conversationId: id, unreadCount },
+    });
+  } catch (error) {
+    console.error("Error marking conversation as read:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // Send a message (REST fallback)
 export const sendMessage = async (req, res) => {
   try {
@@ -335,6 +390,7 @@ export default {
   getConversations,
   createConversation,
   getMessages,
+  markConversationAsRead,
   sendMessage,
   markMessageAsRead,
   getUnreadCount,

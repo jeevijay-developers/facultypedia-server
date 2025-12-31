@@ -48,6 +48,7 @@ const allowedOrigins = [
   process.env.NEXT_PUBLIC_SUPER_DASHBOARD_URL,
 ].filter(Boolean);
 
+console.log("Allowed Origins for CORS:", allowedOrigins);
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins.length > 0 ? allowedOrigins : "*",

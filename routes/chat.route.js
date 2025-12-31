@@ -3,6 +3,7 @@ import {
   getConversations,
   createConversation,
   getMessages,
+  markConversationAsRead,
   sendMessage,
   markMessageAsRead,
   getUnreadCount,
@@ -57,6 +58,18 @@ router.get(
   "/conversations/:id/messages",
   [param("id").isMongoId().withMessage("Invalid conversation ID")],
   getMessages
+);
+
+/**
+ * @route   PUT /api/chat/conversations/:id/read
+ * @desc    Mark all messages in a conversation as read
+ * @access  Private (Admin or Educator - must be participant)
+ * @param   id - Conversation ObjectId
+ */
+router.put(
+  "/conversations/:id/read",
+  [param("id").isMongoId().withMessage("Invalid conversation ID")],
+  markConversationAsRead
 );
 
 /**
