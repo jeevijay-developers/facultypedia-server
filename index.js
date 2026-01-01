@@ -35,7 +35,6 @@ dotenv.config();
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log("Created uploads directory");
 }
 
 const APP = express();
@@ -48,7 +47,6 @@ const allowedOrigins = [
   process.env.NEXT_PUBLIC_SUPER_DASHBOARD_URL,
 ].filter(Boolean);
 
-console.log("Allowed Origins for CORS:", allowedOrigins);
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins.length > 0 ? allowedOrigins : "*",
