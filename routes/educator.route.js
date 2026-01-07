@@ -25,6 +25,7 @@ import {
   getEducatorStatistics,
   uploadEducatorIntroVideo,
   getEducatorIntroVideoStatus,
+  updateEducatorBankDetails,
 } from "../controllers/educator.controller.js";
 import { signupEducator as createEducatorProfile } from "../controllers/auth.controller.js";
 
@@ -52,7 +53,11 @@ import {
   validateSubjectParam,
   validateClassParam,
   validateRatingParam,
+  validateBankDetails,
 } from "../util/validation.js";
+import { authenticateEducator } from "../middleware/auth.middleware.js";
+import { getEducatorPaymentHistory } from "../controllers/payment.controller.js";
+import { getEducatorPayouts } from "../controllers/payout.controller.js";
 
 const ensureUploadDir = () => {
   const uploadDir = path.join(process.cwd(), "tmp", "uploads");
@@ -116,6 +121,8 @@ router.post("/", educatorSignupValidation, createEducatorProfile);
 
 // GET /api/educators - Get all educators with filtering and pagination
 router.get("/", getAllEducators);
+router.get("/me/payments", authenticateEducator, getEducatorPaymentHistory);
+router.get("/me/payouts", authenticateEducator, getEducatorPayouts);
 
 // GET /api/educators/search - Search educators by name or username
 router.get("/search", searchEducators);
@@ -177,6 +184,13 @@ router.post("/:id/rating", ratingValidation, updateEducatorRating);
 
 // POST /api/educators/:id/revenue - Update educator revenue
 router.post("/:id/revenue", revenueValidation, updateEducatorRevenue);
+
+// POST /api/educators/:id/bank-details - Update educator bank details & onboarding
+router.post(
+  "/:id/bank-details",
+  [...validateObjectId(), ...validateBankDetails],
+  updateEducatorBankDetails
+);
 
 // PUT /api/educators/:id - Update educator
 router.put("/:id", updateEducatorValidation, updateEducator);

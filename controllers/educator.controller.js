@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import { validationResult } from "express-validator";
 import Educator from "../models/educator.js";
 import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
+import { createContact, createFundAccount } from "../services/razorpay.service.js";
 
 // Get all educators with filtering and pagination
 export const getAllEducators = async (req, res) => {
@@ -1010,3 +1011,75 @@ export const getEducatorIntroVideoStatus = async (req, res) => {
     });
   }
 };
+
+// Update educator bank details
+export const updateEducatorBankDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bankDetails } = req.body;
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const educator = await Educator.findById(id);
+
+    if (!educator) {
+      return res.status(404).json({
+        success: false,
+        message: "Educator not found",
+      });
+    }
+
+    // Update in DB
+    educator.bankDetails = { ...educator.bankDetails, ...bankDetails };
+    await educator.save();
+
+    // Razorpay Integration
+    try {
+      // 1. Create Contact if not exists
+      if (!educator.razorpayContactId) {
+        const contact = await createContact(educator);
+        educator.razorpayContactId = contact.id;
+        await educator.save();
+      }
+
+      // 2. Create Fund Account (Always create new if details updated)
+      const fundAccount = await createFundAccount(
+        educator.razorpayContactId,
+        educator.bankDetails
+      );
+      educator.razorpayFundAccountId = fundAccount.id;
+      await educator.save();
+    } catch (rpError) {
+      console.error("Razorpay Onboarding Error:", rpError);
+      return res.status(500).json({
+        success: false,
+        message: "Bank details saved, but failed to register with payout system",
+        error: rpError.message,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Bank details updated and registered successfully",
+      data: {
+        bankDetails: educator.bankDetails,
+        isPayoutReady: !!educator.razorpayFundAccountId,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating bank details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+

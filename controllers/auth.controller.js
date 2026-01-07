@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import Educator from "../models/educator.js";
 import Student from "../models/student.js";
 import Admin from "../models/admin.js";
+import PasswordResetToken from "../models/passwordResetToken.js";
 import {
   decodeToken,
   generateAccessToken,
@@ -10,6 +11,7 @@ import {
   hashToken,
   verifyRefreshToken,
 } from "../util/token.js";
+import { sendPasswordResetEmail } from "../util/email.js";
 import {
   VALID_CLASSES,
   VALID_SPECIALIZATIONS,
@@ -17,6 +19,13 @@ import {
 } from "../util/validation.js";
 
 const MAX_REFRESH_TOKENS = 5;
+const OTP_EXPIRY_MINUTES = 5;
+const OTP_THROTTLE_MS = 60 * 1000;
+
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000)
+    .toString()
+    .padStart(6, "0");
 
 const sanitizeEducator = (educator) => {
   const data =
@@ -38,6 +47,23 @@ const sanitizeStudent = (student) => {
       : { ...student };
   delete data.password;
   return data;
+};
+
+const STUDENT_CLASS_SLUG_MAP = {
+  "class-6th": "Class 6th",
+  "class-7th": "Class 7th",
+  "class-8th": "Class 8th",
+  "class-9th": "Class 9th",
+  "class-10th": "Class 10th",
+  "class-11th": "Class 11th",
+  "class-12th": "Class 12th",
+  dropper: "Dropper",
+};
+
+const normalizeStudentClass = (value) => {
+  if (!value || typeof value !== "string") return value;
+  const normalizedKey = value.toLowerCase().replace(/\s+/g, "-");
+  return STUDENT_CLASS_SLUG_MAP[normalizedKey] || value;
 };
 
 const SOCIAL_LINK_FIELDS = [
@@ -528,6 +554,87 @@ export const loginEducator = async (req, res) => {
   }
 };
 
+export const signupStudent = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const {
+      name,
+      username,
+      password,
+      mobileNumber,
+      email,
+      address,
+      image,
+      specialization,
+      class: classInput,
+      deviceToken,
+      preferences,
+    } = req.body;
+
+    const normalizedName = normalizeString(name);
+    const normalizedUsername = normalizeUsernameInput(username);
+    const normalizedEmail = normalizeString(email).toLowerCase();
+    const normalizedMobile = normalizeString(mobileNumber);
+    const normalizedClass = normalizeStudentClass(classInput);
+
+    const existingStudent = await Student.findOne({
+      $or: [
+        { email: normalizedEmail },
+        { username: normalizedUsername },
+        { mobileNumber: normalizedMobile },
+      ],
+    });
+
+    if (existingStudent) {
+      return respondWithValidationError(
+        res,
+        "Student with this email, username, or mobile number already exists"
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const student = new Student({
+      name: normalizedName,
+      username: normalizedUsername,
+      password: hashedPassword,
+      mobileNumber: normalizedMobile,
+      email: normalizedEmail,
+      address,
+      image,
+      specialization,
+      class: normalizedClass,
+      deviceToken,
+      preferences,
+    });
+
+    await student.save();
+
+    const token = generateAccessToken({
+      sub: student._id.toString(),
+      role: "student",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Signup successful",
+      student: sanitizeStudent(student),
+      TOKEN: token,
+      userType: "student",
+    });
+  } catch (error) {
+    console.error("Error during student signup:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 export const loginStudent = async (req, res) => {
   try {
     if (handleValidationErrors(req, res)) {
@@ -577,6 +684,164 @@ export const loginStudent = async (req, res) => {
     });
   } catch (error) {
     console.error("Error during student login:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const requestPasswordReset = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const { email, userType } = req.body;
+    const normalizedEmail = email?.toLowerCase?.();
+    const role = (userType || "").toLowerCase();
+    const isEducator = role === "educator";
+    const Model = isEducator ? Educator : Student;
+    const userModelName = isEducator ? "Educator" : "Student";
+
+    const user = await Model.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    const existingToken = await PasswordResetToken.findOne({
+      email: normalizedEmail,
+      role,
+    });
+
+    const now = Date.now();
+
+    if (existingToken) {
+      if (existingToken.expiresAt && existingToken.expiresAt <= new Date(now)) {
+        await PasswordResetToken.deleteOne({ _id: existingToken._id });
+      } else if (
+        existingToken.updatedAt &&
+        now - existingToken.updatedAt.getTime() < OTP_THROTTLE_MS
+      ) {
+        return res.status(429).json({
+          success: false,
+          message:
+            "OTP already sent. Please wait a minute before requesting again.",
+        });
+      }
+    }
+
+    const otp = generateOtp();
+    const otpHash = hashToken(otp);
+    const expiresAt = new Date(now + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    await PasswordResetToken.findOneAndUpdate(
+      { email: normalizedEmail, role },
+      {
+        email: normalizedEmail,
+        role,
+        user: user._id,
+        userModel: userModelName,
+        otpHash,
+        expiresAt,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    await sendPasswordResetEmail({ to: normalizedEmail, otp, userType: role });
+
+    res.status(200).json({
+      success: true,
+      message: "OTP sent to registered email",
+    });
+  } catch (error) {
+    console.error("Error during password reset request:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const { email, userType, otp, newPassword } = req.body;
+    const normalizedEmail = email?.toLowerCase?.();
+    const role = (userType || "").toLowerCase();
+
+    const tokenDoc = await PasswordResetToken.findOne({
+      email: normalizedEmail,
+      role,
+    });
+
+    if (!tokenDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    const now = new Date();
+    if (tokenDoc.expiresAt <= now) {
+      await PasswordResetToken.deleteOne({ _id: tokenDoc._id });
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please request a new one.",
+      });
+    }
+
+    const hashedOtp = hashToken(otp);
+    if (hashedOtp !== tokenDoc.otpHash) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    const isEducator = role === "educator";
+    const Model = isEducator ? Educator : Student;
+    const userQuery = Model.findOne({ email: normalizedEmail });
+    if (isEducator) {
+      userQuery.select("+password");
+    }
+
+    const user = await userQuery;
+
+    if (!user) {
+      await PasswordResetToken.deleteOne({ _id: tokenDoc._id });
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    if (isEducator) {
+      user.password = newPassword;
+      await user.save();
+    } else {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
+      await user.save();
+    }
+
+    await PasswordResetToken.deleteOne({ _id: tokenDoc._id });
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successful",
+    });
+  } catch (error) {
+    console.error("Error during password reset:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
