@@ -2416,7 +2416,8 @@ export const validateCourseThumbnail = [
 // Validate intro video (allow any valid URL, optional)
 export const validateIntroVideo = [
   body("introVideo")
-    .optional()
+    // Allow empty string/undefined; when provided it must be a URL
+    .optional({ checkFalsy: true })
     .isURL()
     .withMessage("Intro video must be a valid URL"),
 ];
