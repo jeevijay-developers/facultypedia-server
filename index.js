@@ -111,24 +111,7 @@ APP.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// Debug route to check Test model
-APP.get("/debug/test-count", async (req, res) => {
-  try {
-    const { default: Test } = await import("./models/test.js");
-    const count = await Test.countDocuments();
-    res.json({
-      success: true,
-      testCount: count,
-      message: "Test model is working",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "Test model error",
-    });
-  }
-});
+
 
 // Server starting
 server.listen(PORT, () => {

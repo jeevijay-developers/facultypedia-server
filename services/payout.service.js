@@ -5,7 +5,9 @@ import TestSeries from "../models/testSeries.js";
 import Test from "../models/test.js";
 import Payout from "../models/payout.js";
 
-const COMMISSION_PERCENTAGE = 20;
+const COMMISSION_PERCENTAGE = process.env.COMMISSION_PERCENTAGE
+  ? parseInt(process.env.COMMISSION_PERCENTAGE)
+  : 20;
 
 const getEducatorIdFromProduct = async (productId, productType) => {
   try {
