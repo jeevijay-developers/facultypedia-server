@@ -2483,6 +2483,30 @@ export const validateStudyMaterials = [
             `File type must be one of: ${validFileTypes.join(", ")}`
           );
         }
+        if (
+          typeof material.publicId !== "undefined" &&
+          typeof material.publicId !== "string"
+        ) {
+          throw new Error("publicId, when provided, must be a string");
+        }
+        if (
+          typeof material.publicId === "string" &&
+          material.publicId.length > 200
+        ) {
+          throw new Error("publicId cannot exceed 200 characters");
+        }
+        if (
+          typeof material.resourceType !== "undefined" &&
+          typeof material.resourceType !== "string"
+        ) {
+          throw new Error("resourceType, when provided, must be a string");
+        }
+        if (
+          typeof material.resourceType === "string" &&
+          material.resourceType.length > 50
+        ) {
+          throw new Error("resourceType cannot exceed 50 characters");
+        }
       }
 
       return true;
@@ -2785,6 +2809,20 @@ export const validateStudyMaterialDetails = [
     .optional()
     .isIn(["PDF", "DOC", "PPT", "EXCEL", "OTHER"])
     .withMessage("File type must be one of: PDF, DOC, PPT, EXCEL, OTHER"),
+
+  body("publicId")
+    .optional()
+    .isString()
+    .withMessage("publicId must be a string")
+    .isLength({ max: 200 })
+    .withMessage("publicId cannot exceed 200 characters"),
+
+  body("resourceType")
+    .optional()
+    .isString()
+    .withMessage("resourceType must be a string")
+    .isLength({ max: 50 })
+    .withMessage("resourceType cannot exceed 50 characters"),
 ];
 
 // Validate video ID param
