@@ -5,6 +5,47 @@ import Admin from "../models/admin.js";
 
 const chatService = ChatService.getInstance();
 
+// Upload chat image (Option A: images only)
+export const uploadChatImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided",
+      });
+    }
+
+    const url = req.file.path || req.file.secure_url;
+
+    if (!url) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve uploaded image URL",
+      });
+    }
+
+    const attachment = {
+      url,
+      type: "image",
+      filename: req.file.originalname || req.file.filename,
+      size: req.file.size,
+    };
+
+    return res.status(201).json({
+      success: true,
+      message: "Image uploaded successfully",
+      data: { attachment },
+    });
+  } catch (error) {
+    console.error("Error uploading chat image:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to upload image",
+      error: error.message,
+    });
+  }
+};
+
 // Get all conversations for current user
 export const getConversations = async (req, res) => {
   try {
@@ -142,6 +183,61 @@ export const getMessages = async (req, res) => {
   } catch (error) {
     console.error("Error fetching messages:", error);
     res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Mark all messages in a conversation as read for the current user
+export const markConversationAsRead = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const { id } = req.params;
+    const userId = req.auth.userId;
+    const userType = req.auth.userType === "admin" ? "Admin" : "Educator";
+
+    const conversation = await Conversation.findById(id);
+
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Conversation not found",
+      });
+    }
+
+    const isParticipant = conversation.participants.some(
+      (p) => p.userId.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not a participant in this conversation",
+      });
+    }
+
+    await chatService.markAllAsReadInConversation(id, userId);
+
+    const unreadCount = await chatService.getUnreadCount(userId, userType);
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation marked as read",
+      data: { conversationId: id, unreadCount },
+    });
+  } catch (error) {
+    console.error("Error marking conversation as read:", error);
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
       error: error.message,
@@ -294,7 +390,9 @@ export default {
   getConversations,
   createConversation,
   getMessages,
+  markConversationAsRead,
   sendMessage,
   markMessageAsRead,
   getUnreadCount,
+  uploadChatImage,
 };

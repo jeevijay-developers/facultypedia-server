@@ -13,6 +13,9 @@ import {
   getRazorpayKeySecret,
   getRazorpayWebhookSecret,
 } from "../config/razorpay.js";
+import Payout from "../models/payout.js";
+import { sendInvoiceEmail } from "../util/email.js";
+import { generatePayoutInvoice } from "../services/invoice.service.js";
 
 const respondValidationErrors = (req, res) => {
   const errors = validationResult(req);
@@ -311,16 +314,72 @@ export const handleRazorpayWebhook = async (req, res) => {
       });
     }
 
+    // ...
+
     const payload =
       req.body && Object.keys(req.body).length
         ? req.body
         : JSON.parse(rawString);
     const eventName = payload.event;
+
+    // Handle Payout Events
+    if (eventName.startsWith("payout.")) {
+      const payoutEntity = payload.payload?.payout?.entity;
+      const referenceId = payoutEntity?.reference_id;
+
+      if (referenceId) {
+        const payout = await Payout.findOne({
+          payoutCheckId: referenceId,
+        }).populate("educatorId", "fullName email");
+
+        if (payout) {
+          if (eventName === "payout.processed") {
+            payout.status = "paid";
+            payout.razorpayPayoutId = payoutEntity.id;
+          } else if (eventName === "payout.failed") {
+            payout.status = "failed";
+            payout.failureReason = payoutEntity.failure_reason;
+          } else if (eventName === "payout.reversed") {
+            payout.status = "reversed";
+          }
+
+          await payout.save();
+
+          // Send invoice to educator when payout is paid
+          if (payout.status === "paid" && payout.educatorId?.email) {
+            try {
+              const pdfBuffer = await generatePayoutInvoice({
+                payout: payout.toObject(),
+                educator: payout.educatorId,
+              });
+              await sendInvoiceEmail({
+                to: payout.educatorId.email,
+                payout,
+                educator: payout.educatorId,
+                pdfBuffer,
+              });
+            } catch (emailError) {
+              console.error("Failed to send payout invoice email:", emailError);
+            }
+          }
+
+          console.log(
+            `Webhook: Updated payout ${referenceId} status to ${payout.status}`
+          );
+        }
+      }
+
+      return res
+        .status(200)
+        .json({ success: true, message: "Payout webhook processed" });
+    }
+
     const paymentEntity = payload.payload?.payment?.entity;
     const orderEntity = payload.payload?.order?.entity;
     const orderId = paymentEntity?.order_id || orderEntity?.id;
 
     if (!orderId) {
+      // For non-payout events, orderId is required
       return res.status(400).json({
         success: false,
         message: "Order ID missing in payload",
@@ -377,6 +436,105 @@ export const handleRazorpayWebhook = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Unable to process webhook",
+      error: error.message,
+    });
+  }
+};
+
+export const getPaymentHistoryAdmin = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      productType,
+      educatorId,
+      from,
+      to,
+    } = req.query;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (productType) filter.productType = productType;
+    if (educatorId) filter["productSnapshot.educator"] = educatorId;
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = new Date(from);
+      if (to) filter.createdAt.$lte = new Date(to);
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [payments, total] = await Promise.all([
+      PaymentIntent.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      PaymentIntent.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        payments,
+        pagination: {
+          total,
+          page: parseInt(page),
+          pages: Math.ceil(total / parseInt(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching payment history:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch payment history",
+      error: error.message,
+    });
+  }
+};
+
+export const getEducatorPaymentHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, productType, from, to } = req.query;
+
+    const filter = {
+      "productSnapshot.educator": req.educator?._id,
+    };
+    if (status) filter.status = status;
+    if (productType) filter.productType = productType;
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = new Date(from);
+      if (to) filter.createdAt.$lte = new Date(to);
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [payments, total] = await Promise.all([
+      PaymentIntent.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      PaymentIntent.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        payments,
+        pagination: {
+          total,
+          page: parseInt(page),
+          pages: Math.ceil(total / parseInt(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching educator payment history:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch payment history",
       error: error.message,
     });
   }

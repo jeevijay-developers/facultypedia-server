@@ -5,7 +5,10 @@ import {
   logoutEducator,
   refreshEducatorToken,
   signupEducator,
+  signupStudent,
   getCurrentEducatorProfile,
+  requestPasswordReset,
+  resetPassword,
   adminLogin,
   adminSignup,
   logoutAdmin,
@@ -15,7 +18,10 @@ import {
   educatorLoginValidation,
   educatorSignupValidation,
   studentLoginValidation,
+  studentSignupValidation,
   validateRefreshTokenBody,
+  passwordResetRequestValidation,
+  passwordResetConfirmValidation,
 } from "../util/validation.js";
 import {
   authenticateEducator,
@@ -56,18 +62,15 @@ router.post("/ed-login", educatorLoginValidation, loginEducator);
 router.post("/ed-refresh", validateRefreshTokenBody, refreshEducatorToken);
 router.post("/ed-logout", validateRefreshTokenBody, logoutEducator);
 
-// Friendly aliases expected by the frontend
-router.post("/signup-educator", educatorSignupValidation, signupEducator);
-router.post("/login-educator", educatorLoginValidation, loginEducator);
-router.post(
-  "/refresh-educator",
-  validateRefreshTokenBody,
-  refreshEducatorToken
-);
-router.post("/logout-educator", validateRefreshTokenBody, logoutEducator);
-
 // Student routes
+router.post("/signup-student", studentSignupValidation, signupStudent);
 router.post("/login-student", studentLoginValidation, loginStudent);
+router.post(
+  "/forgot-password",
+  passwordResetRequestValidation,
+  requestPasswordReset
+);
+router.post("/reset-password", passwordResetConfirmValidation, resetPassword);
 
 // Admin routes
 router.post("/admin-signup", adminSignupValidation, adminSignup);

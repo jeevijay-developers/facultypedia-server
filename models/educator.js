@@ -105,6 +105,11 @@ const educatorSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    role: {
+      type: String,
+      default: "educator",
+      immutable: true,
+    },
     image: {
       publicId: {
         type: String,
@@ -320,6 +325,18 @@ const educatorSchema = new mongoose.Schema(
         trim: true,
         default: "",
       },
+    },
+    razorpayContactId: {
+      type: String,
+      trim: true,
+      default: "",
+      select: false, // Keep internal
+    },
+    razorpayFundAccountId: {
+      type: String,
+      trim: true,
+      default: "",
+      select: false, // Keep internal
     },
     revenue: {
       totalIncome: {

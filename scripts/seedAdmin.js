@@ -19,8 +19,7 @@ const question = (query) =>
 const seedAdmin = async () => {
   try {
     // Connect to database
-    const mongoURI =
-      process.env.MONGODB_URI || "mongodb://localhost:27017/facultypedia";
+    const mongoURI = process.env.MONGODB_URL;
 
     console.log("Connecting to MongoDB...");
     await mongoose.connect(mongoURI);

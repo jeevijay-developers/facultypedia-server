@@ -493,6 +493,38 @@ export const validateRefreshTokenBody = [
   body("refreshToken").notEmpty().withMessage("Refresh token is required"),
 ];
 
+export const passwordResetRequestValidation = [
+  validateEmail(),
+  body("userType")
+    .isIn(["student", "educator"])
+    .withMessage("userType must be student or educator")
+    .customSanitizer((value) =>
+      typeof value === "string" ? value.toLowerCase() : value
+    ),
+];
+
+export const passwordResetConfirmValidation = [
+  validateEmail(),
+  body("userType")
+    .isIn(["student", "educator"])
+    .withMessage("userType must be student or educator")
+    .customSanitizer((value) =>
+      typeof value === "string" ? value.toLowerCase() : value
+    ),
+  body("otp")
+    .isLength({ min: 6, max: 6 })
+    .withMessage("OTP must be 6 digits")
+    .isNumeric()
+    .withMessage("OTP must be numeric"),
+  body("newPassword")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters long")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage(
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+    ),
+];
+
 // ==================== Webinar Validators ====================
 
 // Validate webinar title
@@ -2085,6 +2117,9 @@ export const createStudentValidation = [
   ...validateStudentPreferences,
 ];
 
+// Auth-facing student signup validation (alias for clarity)
+export const studentSignupValidation = createStudentValidation;
+
 // Complete validation for updating Student
 export const updateStudentValidation = [
   param("id").isMongoId().withMessage("Invalid student ID format"),
@@ -2381,7 +2416,8 @@ export const validateCourseThumbnail = [
 // Validate intro video (allow any valid URL, optional)
 export const validateIntroVideo = [
   body("introVideo")
-    .optional()
+    // Allow empty string/undefined; when provided it must be a URL
+    .optional({ checkFalsy: true })
     .isURL()
     .withMessage("Intro video must be a valid URL"),
 ];

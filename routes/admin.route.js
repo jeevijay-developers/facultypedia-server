@@ -21,8 +21,15 @@ import {
   getRevenueByType,
   getRevenueTransactions,
 } from "../controllers/revenue.controller.js";
+import { getPaymentHistoryAdmin } from "../controllers/payment.controller.js";
 import { authenticateAdmin } from "../middleware/auth.middleware.js";
 import { body, param } from "express-validator";
+
+import {
+  calculateMonthlyPayouts,
+  processPayout,
+  getAllPayouts,
+} from "../controllers/payout.controller.js";
 
 const router = express.Router();
 
@@ -195,6 +202,7 @@ router.get("/revenue/summary", getRevenueSummary);
 router.get("/revenue/by-month", getRevenueByMonth);
 router.get("/revenue/by-type", getRevenueByType);
 router.get("/revenue/transactions", getRevenueTransactions);
+router.get("/payments", getPaymentHistoryAdmin);
 
 // ==================== Test Management Routes ====================
 
@@ -244,5 +252,30 @@ router.get("/test-series", getAllTestSeries);
  * }
  */
 router.get("/live-classes", getAllLiveClasses);
+
+// ==================== Payout Management Routes ====================
+
+/**
+ * @route   POST /api/admin/payouts/calculate
+ * @desc    Calculate monthly payouts
+ * @access  Private (Admin only)
+ * @body    { month: number, year: number }
+ */
+router.post("/payouts/calculate", calculateMonthlyPayouts);
+
+/**
+ * @route   POST /api/admin/payouts/pay
+ * @desc    Process a payout
+ * @access  Private (Admin only)
+ * @body    { payoutId: string }
+ */
+router.post("/payouts/pay", processPayout);
+
+/**
+ * @route   GET /api/admin/payouts
+ * @desc    Get all payouts
+ * @access  Private (Admin only)
+ */
+router.get("/payouts", getAllPayouts);
 
 export default router;

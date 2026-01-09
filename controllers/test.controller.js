@@ -142,8 +142,6 @@ export const getAllTests = async (req, res) => {
       maxMarks,
     } = req.query;
 
-    console.log("getAllTests called with query:", req.query);
-
     // Build filter object
     const filter = { isActive: true };
 
