@@ -180,6 +180,17 @@ const courseSchema = new mongoose.Schema({
         enum: ["PDF", "DOC", "PPT", "EXCEL", "OTHER"],
         default: "PDF",
       },
+      publicId: {
+        type: String,
+        trim: true,
+        maxlength: 200,
+      },
+      resourceType: {
+        type: String,
+        trim: true,
+        maxlength: 50,
+        default: "raw",
+      },
     },
   ],
   courseObjectives: [

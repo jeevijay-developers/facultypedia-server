@@ -1195,7 +1195,7 @@ export const addStudyMaterial = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { title, link, fileType } = req.body;
+    const { title, link, fileType, publicId, resourceType } = req.body;
 
     const course = await Course.findOne({
       _id: id,
@@ -1207,7 +1207,13 @@ export const addStudyMaterial = async (req, res) => {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    course.studyMaterials.push({ title, link, fileType: fileType || "PDF" });
+    course.studyMaterials.push({
+      title,
+      link,
+      fileType: fileType || "PDF",
+      ...(publicId ? { publicId } : {}),
+      ...(resourceType ? { resourceType } : {}),
+    });
     course.updatedAt = Date.now();
     await course.save();
 

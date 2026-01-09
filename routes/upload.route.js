@@ -51,6 +51,7 @@ router.post(
         message: "PDF uploaded successfully",
         fileUrl: result?.secure_url || result?.url,
         publicId: result?.public_id,
+        resourceType: result?.resource_type || "raw",
         originalName: req.file?.originalname,
       });
     } catch (error) {
