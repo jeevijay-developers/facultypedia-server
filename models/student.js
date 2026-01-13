@@ -211,6 +211,11 @@ const studentSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'TestSeries'
         },
+        testTitle: {
+            type: String,
+            trim: true,
+            maxlength: 200
+        },
         score: {
             type: Number,
             required: true
@@ -225,6 +230,41 @@ const studentSchema = new mongoose.Schema({
         },
         rank: {
             type: Number
+        },
+        correct: {
+            type: Number,
+            default: 0
+        },
+        incorrect: {
+            type: Number,
+            default: 0
+        },
+        unattempted: {
+            type: Number,
+            default: 0
+        },
+        questionBreakdown: [{
+            questionId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Question'
+            },
+            selected: {
+                type: Number
+            },
+            correct: [{
+                type: Number
+            }],
+            isCorrect: {
+                type: Boolean
+            },
+            text: {
+                type: String,
+                trim: true,
+                maxlength: 1000
+            }
+        }],
+        submittedAt: {
+            type: Date
         },
         completedAt: {
             type: Date,

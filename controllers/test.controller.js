@@ -261,7 +261,10 @@ export const getTestById = async (req, res) => {
     const test = await Test.findById(id)
       .populate("educatorID", "name email profile")
       .populate("testSeriesID", "title description")
-      .populate("questions", "title questionType difficulty marks topics");
+      .populate(
+        "questions",
+        "title questionType difficulty marks topics options correctOptions answers choices"
+      );
 
     if (!test) {
       return res.status(404).json({
@@ -293,7 +296,10 @@ export const getTestBySlug = async (req, res) => {
     const test = await Test.findOne({ slug, isActive: true })
       .populate("educatorID", "name email profile")
       .populate("testSeriesID", "title description")
-      .populate("questions", "title questionType difficulty marks topics");
+      .populate(
+        "questions",
+        "title questionType difficulty marks topics options correctOptions answers choices"
+      );
 
     if (!test) {
       return res.status(404).json({
