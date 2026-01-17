@@ -1,4 +1,5 @@
 import Webinar from "../models/webinar.js";
+import Educator from "../models/educator.js";
 import { validationResult } from "express-validator";
 import notificationService from "../services/notification.service.js";
 
@@ -67,6 +68,18 @@ export const createWebinar = async (req, res) => {
     });
 
     const savedWebinar = await newWebinar.save();
+
+    // Update educator's webinars array
+    try {
+      await Educator.findByIdAndUpdate(
+        educatorID,
+        { $addToSet: { webinars: savedWebinar._id } },
+        { new: true }
+      );
+    } catch (updateError) {
+      console.error("Error updating educator's webinars:", updateError);
+      // Don't fail webinar creation if educator update fails
+    }
 
     // Notify all followers of the educator
     try {

@@ -301,6 +301,7 @@ export const handleRazorpayWebhook = async (req, res) => {
     const rawString = req.rawBody || JSON.stringify(req.body || {});
 
     if (!signature) {
+      console.warn("Webhook: Missing signature header");
       return res.status(400).json({
         success: false,
         message: "Missing signature",
@@ -308,13 +309,12 @@ export const handleRazorpayWebhook = async (req, res) => {
     }
 
     if (!rawString || !verifyWebhookSignature(rawString, signature)) {
+      console.warn("Webhook: Invalid signature verification");
       return res.status(400).json({
         success: false,
         message: "Invalid webhook signature",
       });
     }
-
-    // ...
 
     const payload =
       req.body && Object.keys(req.body).length
@@ -322,56 +322,229 @@ export const handleRazorpayWebhook = async (req, res) => {
         : JSON.parse(rawString);
     const eventName = payload.event;
 
+    // Log incoming webhook event
+    console.log(`[Webhook] Received event: ${eventName}`);
+
     // Handle Payout Events
     if (eventName.startsWith("payout.")) {
       const payoutEntity = payload.payload?.payout?.entity;
       const referenceId = payoutEntity?.reference_id;
+      const payoutId = payoutEntity?.id;
 
-      if (referenceId) {
-        const payout = await Payout.findOne({
-          payoutCheckId: referenceId,
-        }).populate("educatorId", "fullName email");
+      // Log payout event details
+      console.log(`[Webhook] Payout event details:`, {
+        event: eventName,
+        referenceId: referenceId || "missing",
+        payoutId: payoutId || "missing",
+        status: payoutEntity?.status || "unknown",
+      });
 
-        if (payout) {
-          if (eventName === "payout.processed") {
-            payout.status = "paid";
-            payout.razorpayPayoutId = payoutEntity.id;
-          } else if (eventName === "payout.failed") {
-            payout.status = "failed";
-            payout.failureReason = payoutEntity.failure_reason;
-          } else if (eventName === "payout.reversed") {
-            payout.status = "reversed";
+      // Handle missing reference_id
+      if (!referenceId) {
+        console.warn(
+          `[Webhook] Missing reference_id in payout event: ${eventName}`,
+          {
+            payoutId: payoutId,
+            payload: JSON.stringify(payload.payload),
           }
+        );
+        // Return 200 to prevent Razorpay retries for invalid payloads
+        return res.status(200).json({
+          success: true,
+          message: "Payout webhook processed (no reference_id)",
+        });
+      }
 
-          await payout.save();
+      // Find payout by reference_id
+      const payout = await Payout.findOne({
+        payoutCheckId: referenceId,
+      }).populate("educatorId", "fullName email");
 
-          // Send invoice to educator when payout is paid
-          if (payout.status === "paid" && payout.educatorId?.email) {
-            try {
-              const pdfBuffer = await generatePayoutInvoice({
-                payout: payout.toObject(),
-                educator: payout.educatorId,
-              });
-              await sendInvoiceEmail({
-                to: payout.educatorId.email,
-                payout,
-                educator: payout.educatorId,
-                pdfBuffer,
-              });
-            } catch (emailError) {
-              console.error("Failed to send payout invoice email:", emailError);
-            }
+      if (!payout) {
+        console.warn(
+          `[Webhook] Payout not found for reference_id: ${referenceId}`,
+          {
+            event: eventName,
+            payoutId: payoutId,
           }
+        );
+        // Return 200 to prevent Razorpay retries for unknown references
+        return res.status(200).json({
+          success: true,
+          message: "Payout webhook processed (payout not found)",
+        });
+      }
 
+      // Log payout found
+      console.log(`[Webhook] Found payout:`, {
+        payoutId: payout._id,
+        referenceId: referenceId,
+        currentStatus: payout.status,
+        newEvent: eventName,
+      });
+
+      // Handle different payout events
+      const previousStatus = payout.status;
+
+      if (eventName === "payout.queued") {
+        // Payout is queued for processing
+        payout.status = "processing";
+        if (payoutEntity?.id) {
+          payout.razorpayPayoutId = payoutEntity.id;
+        }
+        console.log(
+          `[Webhook] Payout queued: ${referenceId} (${previousStatus} → processing)`
+        );
+      } else if (eventName === "payout.initiated") {
+        // Payout has been initiated
+        payout.status = "processing";
+        if (payoutEntity?.id) {
+          payout.razorpayPayoutId = payoutEntity.id;
+        }
+        console.log(
+          `[Webhook] Payout initiated: ${referenceId} (${previousStatus} → processing)`
+        );
+      } else if (eventName === "payout.processed") {
+        // Payout completed successfully
+        payout.status = "paid";
+        if (payoutEntity?.id) {
+          payout.razorpayPayoutId = payoutEntity.id;
+        }
+        if (payoutEntity?.utr) {
+          payout.utr = payoutEntity.utr;
+        }
+        console.log(
+          `[Webhook] Payout processed: ${referenceId} (${previousStatus} → paid)`,
+          {
+            utr: payoutEntity?.utr || "N/A",
+            razorpayPayoutId: payoutEntity?.id,
+          }
+        );
+      } else if (eventName === "payout.failed") {
+        // Payout failed
+        payout.status = "failed";
+        if (payoutEntity?.failure_reason) {
+          payout.failureReason = payoutEntity.failure_reason;
+        }
+        if (payoutEntity?.utr) {
+          payout.utr = payoutEntity.utr;
+        }
+        console.log(
+          `[Webhook] Payout failed: ${referenceId} (${previousStatus} → failed)`,
+          {
+            failureReason: payoutEntity?.failure_reason || "N/A",
+            utr: payoutEntity?.utr || "N/A",
+          }
+        );
+      } else if (eventName === "payout.reversed") {
+        // Payout was reversed
+        payout.status = "reversed";
+        if (payoutEntity?.utr) {
+          payout.utr = payoutEntity.utr;
+        }
+        console.log(
+          `[Webhook] Payout reversed: ${referenceId} (${previousStatus} → reversed)`,
+          {
+            utr: payoutEntity?.utr || "N/A",
+          }
+        );
+      } else {
+        // Unknown payout event - log but don't update status
+        console.warn(
+          `[Webhook] Unhandled payout event: ${eventName} for reference_id: ${referenceId}`
+        );
+      }
+
+      // Save payout if status changed
+      if (payout.isModified("status")) {
+        await payout.save();
+        console.log(
+          `[Webhook] Payout status updated: ${referenceId} → ${payout.status}`
+        );
+      }
+
+      // Send invoice to educator when payout is paid
+      if (payout.status === "paid" && payout.educatorId?.email) {
+        try {
           console.log(
-            `Webhook: Updated payout ${referenceId} status to ${payout.status}`
+            `[Webhook] Sending invoice email to educator: ${payout.educatorId.email}`
+          );
+          const pdfBuffer = await generatePayoutInvoice({
+            payout: payout.toObject(),
+            educator: payout.educatorId,
+          });
+          await sendInvoiceEmail({
+            to: payout.educatorId.email,
+            payout,
+            educator: payout.educatorId,
+            pdfBuffer,
+          });
+          console.log(
+            `[Webhook] Invoice email sent successfully to: ${payout.educatorId.email}`
+          );
+        } catch (emailError) {
+          console.error(
+            `[Webhook] Failed to send payout invoice email:`,
+            emailError
           );
         }
       }
 
-      return res
-        .status(200)
-        .json({ success: true, message: "Payout webhook processed" });
+      return res.status(200).json({
+        success: true,
+        message: "Payout webhook processed",
+        data: {
+          referenceId,
+          payoutId: payout._id,
+          status: payout.status,
+          event: eventName,
+        },
+      });
+    }
+
+    // Handle Transaction Created Event (RazorpayX)
+    if (eventName === "transaction.created") {
+      const transactionEntity = payload.payload?.transaction?.entity;
+      const referenceId = transactionEntity?.reference_id;
+      const transactionId = transactionEntity?.id;
+
+      console.log(`[Webhook] Transaction created event:`, {
+        transactionId: transactionId || "missing",
+        referenceId: referenceId || "missing",
+        type: transactionEntity?.type || "unknown",
+        status: transactionEntity?.status || "unknown",
+      });
+
+      // Check if transaction is related to a payout
+      if (referenceId) {
+        const payout = await Payout.findOne({
+          payoutCheckId: referenceId,
+        });
+
+        if (payout) {
+          console.log(
+            `[Webhook] Transaction created for payout: ${referenceId}`,
+            {
+              transactionId: transactionId,
+              transactionType: transactionEntity?.type,
+              transactionStatus: transactionEntity?.status,
+            }
+          );
+          // Log transaction creation for audit purposes
+          // Note: We don't update payout status here as transaction.created
+          // is separate from payout status events
+        } else {
+          console.log(
+            `[Webhook] Transaction created but no matching payout found for reference_id: ${referenceId}`
+          );
+        }
+      }
+
+      // Return 200 even if payout not found (to prevent retries)
+      return res.status(200).json({
+        success: true,
+        message: "Transaction webhook processed",
+      });
     }
 
     const paymentEntity = payload.payload?.payment?.entity;

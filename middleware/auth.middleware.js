@@ -176,3 +176,25 @@ export const authenticateAdminOrEducator = async (req, res, next) => {
     buildErrorResponse(res, 500, "Authentication failed");
   }
 };
+
+export const ensureEmailVerified = (req, res, next) => {
+  try {
+    const user = req.educator || req.student;
+    if (!user) {
+      return buildErrorResponse(res, 401, "Authentication required");
+    }
+
+    if (!user.isEmailVerified) {
+      return buildErrorResponse(
+        res,
+        403,
+        "Email not verified. Please verify your email to continue."
+      );
+    }
+
+    next();
+  } catch (error) {
+    console.error("Email verification middleware error:", error);
+    buildErrorResponse(res, 500, "Verification check failed");
+  }
+};

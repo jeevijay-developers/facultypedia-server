@@ -2,7 +2,22 @@ import fs from "fs/promises";
 import { validationResult } from "express-validator";
 import Educator from "../models/educator.js";
 import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
-import { createContact, createFundAccount } from "../services/razorpay.service.js";
+import {
+  createContact,
+  createFundAccount,
+} from "../services/razorpay.service.js";
+import { sendBankDetailsUpdatedEmail } from "../util/email.js";
+
+const maskAccountInEducator = (educator) => {
+  if (!educator) return educator;
+  const eduObj = educator.toObject ? educator.toObject() : educator;
+  if (eduObj.bankDetails && eduObj.bankDetails.accountNumber) {
+    const accNum = eduObj.bankDetails.accountNumber;
+    eduObj.bankDetails.accountNumber =
+      accNum.length > 4 ? "XXXX" + accNum.slice(-4) : accNum;
+  }
+  return eduObj;
+};
 
 // Get all educators with filtering and pagination
 export const getAllEducators = async (req, res) => {
@@ -87,7 +102,7 @@ export const getAllEducators = async (req, res) => {
       success: true,
       message: "Educators retrieved successfully",
       data: {
-        educators,
+        educators: educators.map(maskAccountInEducator),
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -141,7 +156,7 @@ export const getEducatorById = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Educator retrieved successfully",
-      data: { educator },
+      data: { educator: maskAccountInEducator(educator) },
     });
   } catch (error) {
     console.error("Error fetching educator:", error);
@@ -177,7 +192,7 @@ export const getEducatorByUsername = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Educator retrieved successfully",
-      data: educator,
+      data: maskAccountInEducator(educator),
     });
   } catch (error) {
     console.error("Error fetching educator:", error);
@@ -213,7 +228,7 @@ export const getEducatorBySlug = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Educator retrieved successfully",
-      data: educator,
+      data: maskAccountInEducator(educator),
     });
   } catch (error) {
     console.error("Error fetching educator:", error);
@@ -1040,27 +1055,90 @@ export const updateEducatorBankDetails = async (req, res) => {
     educator.bankDetails = { ...educator.bankDetails, ...bankDetails };
     await educator.save();
 
+    // Send email notification
+    sendBankDetailsUpdatedEmail({
+      to: educator.email,
+      educator,
+    }).catch((err) => console.error("Failed to send bank update email:", err));
+
+    // Validate required bank details before Razorpay integration
+    const requiredFields = ["accountHolderName", "accountNumber", "ifscCode"];
+    const missingFields = requiredFields.filter(
+      (field) => !educator.bankDetails[field]
+    );
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required bank details: ${missingFields.join(", ")}`,
+      });
+    }
+
     // Razorpay Integration
     try {
       // 1. Create Contact if not exists
       if (!educator.razorpayContactId) {
+        console.log(`Creating Razorpay contact for educator ${educator._id}`);
         const contact = await createContact(educator);
         educator.razorpayContactId = contact.id;
         await educator.save();
+        console.log(`Contact created: ${contact.id}`);
+      } else {
+        console.log(`Using existing contact: ${educator.razorpayContactId}`);
       }
 
       // 2. Create Fund Account (Always create new if details updated)
+      // Note: Razorpay returns existing fund account if same details exist
+      console.log(
+        `Creating fund account for contact ${educator.razorpayContactId}`
+      );
       const fundAccount = await createFundAccount(
         educator.razorpayContactId,
         educator.bankDetails
       );
+
+      if (!fundAccount || !fundAccount.id) {
+        throw new Error(
+          "Fund account creation failed - no ID returned from Razorpay"
+        );
+      }
+
       educator.razorpayFundAccountId = fundAccount.id;
       await educator.save();
+
+      // Verify the fund account ID was saved
+      const savedEducator = await Educator.findById(educator._id).select(
+        "razorpayFundAccountId"
+      );
+      if (
+        !savedEducator.razorpayFundAccountId ||
+        savedEducator.razorpayFundAccountId !== fundAccount.id
+      ) {
+        console.error(
+          `Warning: Fund account ID not properly saved for educator ${educator._id}`
+        );
+        throw new Error("Failed to save fund account ID to educator record");
+      }
+
+      console.log(
+        `Fund account created and saved successfully: ${fundAccount.id}`
+      );
     } catch (rpError) {
       console.error("Razorpay Onboarding Error:", rpError);
+      console.error("Error details:", {
+        educatorId: educator._id,
+        hasContactId: !!educator.razorpayContactId,
+        contactId: educator.razorpayContactId,
+        bankDetails: {
+          hasAccountHolderName: !!educator.bankDetails.accountHolderName,
+          hasAccountNumber: !!educator.bankDetails.accountNumber,
+          hasIfscCode: !!educator.bankDetails.ifscCode,
+        },
+      });
       return res.status(500).json({
         success: false,
-        message: "Bank details saved, but failed to register with payout system",
+        message:
+          "Bank details saved, but failed to register with payout system",
         error: rpError.message,
       });
     }
@@ -1069,7 +1147,7 @@ export const updateEducatorBankDetails = async (req, res) => {
       success: true,
       message: "Bank details updated and registered successfully",
       data: {
-        bankDetails: educator.bankDetails,
+        bankDetails: maskAccountInEducator(educator).bankDetails,
         isPayoutReady: !!educator.razorpayFundAccountId,
       },
     });
@@ -1082,4 +1160,3 @@ export const updateEducatorBankDetails = async (req, res) => {
     });
   }
 };
-

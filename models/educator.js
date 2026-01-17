@@ -46,6 +46,10 @@ const educatorSchema = new mongoose.Schema(
         "Please provide a valid email address",
       ],
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
     password: {
       type: String,
       required: [true, "Password is required"],

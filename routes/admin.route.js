@@ -29,6 +29,8 @@ import {
   calculateMonthlyPayouts,
   processPayout,
   getAllPayouts,
+  getMonthlySalesSummary,
+  processBulkPayouts,
 } from "../controllers/payout.controller.js";
 
 const router = express.Router();
@@ -277,5 +279,21 @@ router.post("/payouts/pay", processPayout);
  * @access  Private (Admin only)
  */
 router.get("/payouts", getAllPayouts);
+
+/**
+ * @route   GET /api/admin/payouts/monthly-sales
+ * @desc    Get monthly sales summary per educator
+ * @access  Private (Admin only)
+ * @query   { page?, limit?, month?, year?, scheduledDate? }
+ */
+router.get("/payouts/monthly-sales", getMonthlySalesSummary);
+
+/**
+ * @route   POST /api/admin/payouts/bulk-pay
+ * @desc    Process bulk payouts (multiple educators)
+ * @access  Private (Admin only)
+ * @body    { payoutIds?: string[], month?: number, year?: number }
+ */
+router.post("/payouts/bulk-pay", processBulkPayouts);
 
 export default router;

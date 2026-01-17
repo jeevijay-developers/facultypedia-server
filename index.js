@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -29,7 +29,6 @@ import connectDB from "./util/DBConnect.js";
 import initializeNotificationSocket from "./sockets/notification.socket.js";
 import { initializeChatNamespace } from "./sockets/chat.socket.js";
 import { initializeStudentEducatorQueryNamespace } from "./sockets/studentEducator.socket.js";
-dotenv.config();
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -110,8 +109,6 @@ const PORT = process.env.PORT || 5000;
 APP.get("/", (req, res) => {
   res.send("Hello World!");
 });
-
-
 
 // Server starting
 server.listen(PORT, () => {

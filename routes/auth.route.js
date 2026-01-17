@@ -9,6 +9,8 @@ import {
   getCurrentEducatorProfile,
   requestPasswordReset,
   resetPassword,
+  requestEmailVerification,
+  verifyEmail,
   adminLogin,
   adminSignup,
   logoutAdmin,
@@ -22,6 +24,8 @@ import {
   validateRefreshTokenBody,
   passwordResetRequestValidation,
   passwordResetConfirmValidation,
+  emailVerificationRequestValidation,
+  emailVerificationConfirmValidation,
 } from "../util/validation.js";
 import {
   authenticateEducator,
@@ -71,6 +75,17 @@ router.post(
   requestPasswordReset
 );
 router.post("/reset-password", passwordResetConfirmValidation, resetPassword);
+router.post(
+  "/request-email-verification",
+  emailVerificationRequestValidation,
+  requestEmailVerification
+);
+router.post(
+  "/resend-email-verification",
+  emailVerificationRequestValidation,
+  requestEmailVerification
+);
+router.post("/verify-email", emailVerificationConfirmValidation, verifyEmail);
 
 // Admin routes
 router.post("/admin-signup", adminSignupValidation, adminSignup);

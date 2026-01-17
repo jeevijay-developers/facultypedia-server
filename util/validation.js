@@ -354,26 +354,30 @@ export const validatePayPerHourFee = (isOptional = false) => {
 // Validate bank details
 export const validateBankDetails = [
   body("bankDetails.accountHolderName")
-    .optional()
     .trim()
+    .notEmpty()
+    .withMessage("Account holder name is required")
     .isLength({ max: 100 })
     .withMessage("Account holder name cannot exceed 100 characters"),
 
   body("bankDetails.accountNumber")
-    .optional()
     .trim()
+    .notEmpty()
+    .withMessage("Account number is required")
     .matches(/^\d{9,18}$/)
     .withMessage("Account number must be between 9 and 18 digits"),
 
   body("bankDetails.ifscCode")
-    .optional()
     .trim()
+    .notEmpty()
+    .withMessage("IFSC code is required")
     .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/)
     .withMessage("Please provide a valid IFSC code"),
 
   body("bankDetails.bankName")
-    .optional()
     .trim()
+    .notEmpty()
+    .withMessage("Bank name is required")
     .isLength({ max: 100 })
     .withMessage("Bank name cannot exceed 100 characters"),
 ];
@@ -523,6 +527,31 @@ export const passwordResetConfirmValidation = [
     .withMessage(
       "Password must contain at least one uppercase letter, one lowercase letter, and one number"
     ),
+];
+
+export const emailVerificationRequestValidation = [
+  validateEmail(),
+  body("userType")
+    .isIn(["student", "educator"])
+    .withMessage("userType must be student or educator")
+    .customSanitizer((value) =>
+      typeof value === "string" ? value.toLowerCase() : value
+    ),
+];
+
+export const emailVerificationConfirmValidation = [
+  validateEmail(),
+  body("userType")
+    .isIn(["student", "educator"])
+    .withMessage("userType must be student or educator")
+    .customSanitizer((value) =>
+      typeof value === "string" ? value.toLowerCase() : value
+    ),
+  body("otp")
+    .isLength({ min: 6, max: 6 })
+    .withMessage("OTP must be 6 digits")
+    .isNumeric()
+    .withMessage("OTP must be numeric"),
 ];
 
 // ==================== Webinar Validators ====================
@@ -3252,8 +3281,8 @@ export const validateStudyMaterialDocs = (isOptional = false) =>
         typeof file.size === "number"
           ? file.size
           : typeof file.bytes === "number"
-          ? file.bytes
-          : file.buffer?.length || 0;
+            ? file.bytes
+            : file.buffer?.length || 0;
 
       if (sizeInBytes > MAX_STUDY_MATERIAL_FILE_SIZE) {
         const sizeInMb =
@@ -3418,8 +3447,8 @@ export const validateLiveClassSubject = (optional = false) => {
       Array.isArray(value)
         ? value
         : typeof value === "string"
-        ? value.split(",")
-        : []
+          ? value.split(",")
+          : []
     )
       .map((entry) =>
         typeof entry === "string" ? entry.trim().toLowerCase() : ""
@@ -3451,8 +3480,8 @@ export const validateLiveClassSpecification = (optional = false) => {
       Array.isArray(value)
         ? value
         : typeof value === "string"
-        ? value.split(",")
-        : []
+          ? value.split(",")
+          : []
     )
       .map((entry) =>
         typeof entry === "string" ? entry.trim().toUpperCase() : ""

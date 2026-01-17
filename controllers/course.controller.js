@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import { validationResult } from "express-validator";
 import Course from "../models/course.js";
+import Educator from "../models/educator.js";
 import notificationService from "../services/notification.service.js";
 import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
 
@@ -100,6 +101,18 @@ export const createCourse = async (req, res) => {
     course.slug = course.generateSlug();
 
     await course.save();
+
+    // Update educator's courses array
+    try {
+      await Educator.findByIdAndUpdate(
+        educatorID,
+        { $addToSet: { courses: course._id } },
+        { new: true }
+      );
+    } catch (updateError) {
+      console.error("Error updating educator's courses:", updateError);
+      // Don't fail course creation if educator update fails
+    }
 
     // Notify all followers of the educator
     try {

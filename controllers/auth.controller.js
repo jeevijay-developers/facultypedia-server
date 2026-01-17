@@ -4,6 +4,7 @@ import Educator from "../models/educator.js";
 import Student from "../models/student.js";
 import Admin from "../models/admin.js";
 import PasswordResetToken from "../models/passwordResetToken.js";
+import EmailVerificationToken from "../models/emailVerificationToken.js";
 import {
   decodeToken,
   generateAccessToken,
@@ -11,7 +12,10 @@ import {
   hashToken,
   verifyRefreshToken,
 } from "../util/token.js";
-import { sendPasswordResetEmail } from "../util/email.js";
+import {
+  sendEmailVerificationOtp,
+  sendPasswordResetEmail,
+} from "../util/email.js";
 import {
   VALID_CLASSES,
   VALID_SPECIALIZATIONS,
@@ -19,13 +23,77 @@ import {
 } from "../util/validation.js";
 
 const MAX_REFRESH_TOKENS = 5;
-const OTP_EXPIRY_MINUTES = 5;
-const OTP_THROTTLE_MS = 60 * 1000;
+const OTP_EXPIRY_MINUTES = 5; // Password reset OTP expiry (minutes)
+const VERIFICATION_OTP_EXPIRY_MINUTES = 10; // Email verification OTP expiry (minutes)
+const OTP_THROTTLE_MS = 60 * 1000; // 60 seconds throttle between OTP sends
 
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000)
     .toString()
     .padStart(6, "0");
+
+const sendVerificationCode = async ({ user, role }) => {
+  try {
+    const normalizedEmail = user?.email?.toLowerCase?.();
+    if (!normalizedEmail) {
+      return { sent: false, error: "Email missing" };
+    }
+
+    const userModelName = role === "educator" ? "Educator" : "Student";
+    const now = Date.now();
+
+    const existingToken = await EmailVerificationToken.findOne({
+      email: normalizedEmail,
+      role,
+    });
+
+    if (existingToken) {
+      if (existingToken.expiresAt && existingToken.expiresAt <= new Date(now)) {
+        await EmailVerificationToken.deleteOne({ _id: existingToken._id });
+      } else if (
+        existingToken.updatedAt &&
+        now - existingToken.updatedAt.getTime() < OTP_THROTTLE_MS
+      ) {
+        return {
+          sent: false,
+          throttled: true,
+          retryAfterMs:
+            OTP_THROTTLE_MS - (now - existingToken.updatedAt.getTime()),
+        };
+      }
+    }
+
+    const otp = generateOtp();
+    const otpHash = hashToken(otp);
+    const expiresAt = new Date(
+      now + VERIFICATION_OTP_EXPIRY_MINUTES * 60 * 1000
+    );
+
+    await EmailVerificationToken.findOneAndUpdate(
+      { email: normalizedEmail, role },
+      {
+        email: normalizedEmail,
+        role,
+        user: user._id,
+        userModel: userModelName,
+        otpHash,
+        expiresAt,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    await sendEmailVerificationOtp({
+      to: normalizedEmail,
+      otp,
+      userType: role,
+    });
+
+    return { sent: true };
+  } catch (error) {
+    console.error("Error sending verification code:", error);
+    return { sent: false, error: error.message };
+  }
+};
 
 const sanitizeEducator = (educator) => {
   const data =
@@ -486,6 +554,9 @@ export const signupEducator = async (req, res) => {
 
     await educator.save();
 
+    // Auto-send email verification OTP (non-blocking for UX)
+    await sendVerificationCode({ user: educator, role: "educator" });
+
     const tokens = await issueTokens(educator._id);
     const educatorDataResponse = sanitizeEducator(educator);
 
@@ -612,6 +683,9 @@ export const signupStudent = async (req, res) => {
     });
 
     await student.save();
+
+    // Auto-send email verification OTP (non-blocking for UX)
+    await sendVerificationCode({ user: student, role: "student" });
 
     const token = generateAccessToken({
       sub: student._id.toString(),
@@ -842,6 +916,138 @@ export const resetPassword = async (req, res) => {
     });
   } catch (error) {
     console.error("Error during password reset:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const requestEmailVerification = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const { email, userType } = req.body;
+    const normalizedEmail = email?.toLowerCase?.();
+    const role = (userType || "").toLowerCase();
+    const isEducator = role === "educator";
+    const Model = isEducator ? Educator : Student;
+
+    const user = await Model.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(200).json({
+        success: true,
+        message: "Email already verified",
+      });
+    }
+
+    const result = await sendVerificationCode({ user, role });
+
+    if (result.throttled) {
+      return res.status(429).json({
+        success: false,
+        message: "OTP already sent. Please wait before requesting again.",
+        retryAfterMs: result.retryAfterMs,
+      });
+    }
+
+    if (!result.sent) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send verification code",
+        error: result.error,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to email",
+    });
+  } catch (error) {
+    console.error("Error during email verification request:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const verifyEmail = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const { email, userType, otp } = req.body;
+    const normalizedEmail = email?.toLowerCase?.();
+    const role = (userType || "").toLowerCase();
+    const isEducator = role === "educator";
+    const Model = isEducator ? Educator : Student;
+
+    const tokenDoc = await EmailVerificationToken.findOne({
+      email: normalizedEmail,
+      role,
+    });
+
+    if (!tokenDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    const now = new Date();
+    if (tokenDoc.expiresAt <= now) {
+      await EmailVerificationToken.deleteOne({ _id: tokenDoc._id });
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please request a new one.",
+      });
+    }
+
+    const hashedOtp = hashToken(otp);
+    if (hashedOtp !== tokenDoc.otpHash) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    const user = await Model.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      await EmailVerificationToken.deleteOne({ _id: tokenDoc._id });
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    if (!user.isEmailVerified) {
+      user.isEmailVerified = true;
+      await user.save();
+    }
+
+    await EmailVerificationToken.deleteOne({ _id: tokenDoc._id });
+
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully",
+    });
+  } catch (error) {
+    console.error("Error during email verification:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

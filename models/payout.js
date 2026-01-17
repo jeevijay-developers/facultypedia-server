@@ -59,9 +59,17 @@ const payoutSchema = new mongoose.Schema(
       type: String,
     },
     narration: {
-        type: String,
-        default: "Payout"
-    }
+      type: String,
+      default: "Payout",
+    },
+    idempotencyKey: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    utr: {
+      type: String,
+    },
   },
   {
     timestamps: true,

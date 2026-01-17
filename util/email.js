@@ -1,29 +1,43 @@
 import nodemailer from "nodemailer";
 
-const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+let transporter;
 
-const transportOptions = {
-  host: SMTP_HOST,
-  port: Number(SMTP_PORT) || 587,
-  secure: Number(SMTP_PORT) === 465,
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
-  },
-};
+const getSmtpConfig = () => {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, ADMIN_EMAIL } =
+    process.env;
 
-const transporter = nodemailer.createTransport(transportOptions);
-
-const assertSmtpConfig = () => {
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
     throw new Error("SMTP configuration is missing");
   }
+
+  const portNumber = Number(SMTP_PORT) || 587;
+
+  return {
+    from: SMTP_FROM || SMTP_USER,
+    cc: ADMIN_EMAIL || "admin@facultypedia.com",
+    transportOptions: {
+      host: SMTP_HOST,
+      port: portNumber,
+      secure: portNumber === 465,
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+      },
+    },
+  };
+};
+
+const getTransporter = () => {
+  if (!transporter) {
+    const { transportOptions } = getSmtpConfig();
+    transporter = nodemailer.createTransport(transportOptions);
+  }
+  return transporter;
 };
 
 export const sendPasswordResetEmail = async ({ to, otp, userType }) => {
-  assertSmtpConfig();
-
-  const from = SMTP_FROM || SMTP_USER;
+  const { from } = getSmtpConfig();
+  const mailer = getTransporter();
   const subject = "Reset your FacultyPedia password";
   const text = `Hi,
 
@@ -36,13 +50,31 @@ This OTP expires in 5 minutes. If you did not request this, you can ignore this 
 Thanks,
 FacultyPedia Team`;
 
-  return transporter.sendMail({ from, to, subject, text });
+  return mailer.sendMail({ from, to, subject, text });
+};
+
+export const sendEmailVerificationOtp = async ({ to, otp, userType }) => {
+  const { from } = getSmtpConfig();
+  const mailer = getTransporter();
+  const subject = "Verify your FacultyPedia email";
+
+  const text = `Hi,
+
+Welcome to FacultyPedia! Please verify your ${userType} account email.
+
+Your one-time verification code is: ${otp}
+
+This code expires in 10 minutes. If you did not sign up, you can ignore this email.
+
+Thanks,
+FacultyPedia Team`;
+
+  return mailer.sendMail({ from, to, subject, text });
 };
 
 export const sendInvoiceEmail = async ({ to, payout, educator, pdfBuffer }) => {
-  assertSmtpConfig();
-
-  const from = SMTP_FROM || SMTP_USER;
+  const { from } = getSmtpConfig();
+  const mailer = getTransporter();
   const subject = `Payout Invoice - ${
     payout?.payoutCheckId || payout?._id || ""
   }`;
@@ -68,5 +100,28 @@ FacultyPedia Team`;
       ]
     : [];
 
-  return transporter.sendMail({ from, to, subject, text, attachments });
+  return mailer.sendMail({ from, to, subject, text, attachments });
+};
+
+export const sendBankDetailsUpdatedEmail = async ({ to, educator }) => {
+  const { from, cc } = getSmtpConfig();
+  const mailer = getTransporter();
+  const subject = "Security Alert: Bank Details Updated";
+
+  const text = `Hi ${educator?.fullName || "Educator"},
+
+This is a security notification to inform you that your bank account details for payouts were updated on ${new Date().toLocaleString()}.
+
+If you made this change, you can ignore this email.
+
+Account Holder: ${educator.bankDetails.accountHolderName}
+Bank: ${educator.bankDetails.bankName}
+Account Number: XXXX${educator.bankDetails.accountNumber.slice(-4)}
+
+IF YOU DID NOT AUTHORIZE THIS CHANGE, please contact support immediately to freeze your payouts.
+
+Thanks,
+FacultyPedia Security Team`;
+
+  return mailer.sendMail({ from, to, cc, subject, text });
 };
