@@ -175,7 +175,10 @@ export const getAllWebinars = async (req, res) => {
 
     // Get webinars with population
     const webinars = await Webinar.find(filter)
-      .populate("educatorID", "name email")
+      .populate(
+        "educatorID",
+        "fullName firstName lastName username email profilePicture image"
+      )
       .populate("studentEnrolled", "name email")
       .sort({ timing: 1 })
       .skip(skip)
@@ -215,7 +218,10 @@ export const getWebinarById = async (req, res) => {
     const { id } = req.params;
 
     const webinar = await Webinar.findById(id)
-      .populate("educatorID", "name email profile")
+      .populate(
+        "educatorID",
+        "fullName firstName lastName username email profilePicture image"
+      )
       .populate("studentEnrolled", "name email profile");
 
     if (!webinar) {
@@ -246,7 +252,10 @@ export const getWebinarBySlug = async (req, res) => {
     const { slug } = req.params;
 
     const webinar = await Webinar.findOne({ slug, isActive: true })
-      .populate("educatorID", "name email profile")
+      .populate(
+        "educatorID",
+        "fullName firstName lastName username email profilePicture image"
+      )
       .populate("studentEnrolled", "name email profile");
 
     if (!webinar) {
@@ -313,7 +322,10 @@ export const updateWebinar = async (req, res) => {
     const updatedWebinar = await Webinar.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
-    }).populate("educatorID", "name email");
+    }).populate(
+      "educatorID",
+      "fullName firstName lastName username email profilePicture image"
+    );
 
     if (!updatedWebinar) {
       return res.status(404).json({

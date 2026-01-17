@@ -69,6 +69,23 @@ export const getAllEducators = async (req, res) => {
       .limit(parseInt(limit))
       .lean();
 
+    const educatorIds = Array.isArray(educators)
+      ? educators
+          .map((educator) => educator?._id)
+          .filter((id) => Boolean(id))
+      : [];
+
+    const courseCounts = educatorIds.length
+      ? await Course.aggregate([
+          { $match: { educatorID: { $in: educatorIds } } },
+          { $group: { _id: "$educatorID", totalCourses: { $sum: 1 } } },
+        ])
+      : [];
+
+    const courseCountMap = new Map(
+      courseCounts.map((entry) => [String(entry._id), entry.totalCourses || 0])
+    );
+
     const totalEducators = await Educator.countDocuments(filter);
     const totalPages = Math.ceil(totalEducators / parseInt(limit));
 
@@ -88,7 +105,7 @@ export const getAllEducators = async (req, res) => {
               ? educator.courses
               : [];
 
-            const totalCourses = courseList.length;
+            const totalCourses = courseCountMap.get(id) ?? courseList.length;
 
             const enrolledStudentIds = new Set();
             courseList.forEach((course) => {
