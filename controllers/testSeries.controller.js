@@ -3,6 +3,7 @@ import TestSeries from "../models/testSeries.js";
 import Course from "../models/course.js";
 import mongoose from "mongoose";
 import notificationService from "../services/notification.service.js";
+import Educator from "../models/educator.js";
 
 // ==================== CRUD Operations ====================
 
@@ -54,8 +55,8 @@ export const createTestSeries = async (req, res) => {
     const normalizedTests = Array.isArray(tests)
       ? tests
       : Array.isArray(liveTests)
-      ? liveTests
-      : [];
+        ? liveTests
+        : [];
 
     const parsedNumberOfTests =
       numberOfTests !== undefined && numberOfTests !== null
@@ -1006,6 +1007,122 @@ export const getOverallStatistics = async (req, res) => {
   } catch (error) {
     console.error("Error fetching overall statistics:", error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Bulk create test series (dev-only)
+export const bulkCreateTestSeries = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const seriesInput = Array.isArray(req.body.testSeries)
+      ? req.body.testSeries
+      : [];
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < seriesInput.length; index += 1) {
+      const raw = seriesInput[index] || {};
+
+      try {
+        const slug = (raw.title || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+
+        const existing = await TestSeries.findOne({ slug, isActive: true });
+        if (existing) {
+          results.push({
+            index,
+            success: false,
+            error: "A test series with this title already exists",
+          });
+          continue;
+        }
+
+        const normalizedTests = Array.isArray(raw.tests)
+          ? raw.tests
+          : Array.isArray(raw.liveTests)
+            ? raw.liveTests
+            : [];
+
+        const parsedNumberOfTests =
+          raw.numberOfTests !== undefined && raw.numberOfTests !== null
+            ? Number(raw.numberOfTests)
+            : undefined;
+
+        const totalTestsCount =
+          typeof parsedNumberOfTests === "number" &&
+          !Number.isNaN(parsedNumberOfTests) &&
+          parsedNumberOfTests > 0
+            ? parsedNumberOfTests
+            : normalizedTests.length;
+
+        const testSeries = new TestSeries({
+          title: raw.title,
+          description: raw.description,
+          price: raw.price,
+          validity: raw.validity,
+          numberOfTests: totalTestsCount,
+          image: raw.image,
+          educatorId: raw.educatorId,
+          subject: raw.subject,
+          specialization: raw.specialization,
+          isCourseSpecific: raw.isCourseSpecific || false,
+          courseId: raw.isCourseSpecific ? raw.courseId : null,
+          tests: normalizedTests,
+          slug,
+        });
+
+        testSeries.slug = testSeries.generateSlug();
+        await testSeries.save();
+
+        if (raw.educatorId) {
+          try {
+            await Educator.findByIdAndUpdate(raw.educatorId, {
+              $addToSet: { testSeries: testSeries._id },
+            });
+          } catch (updateError) {
+            console.warn(
+              "Bulk test series: educator update failed",
+              updateError
+            );
+          }
+        }
+
+        results.push({ index, success: true, data: testSeries });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create test series",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: seriesInput.length,
+      created,
+      failed: seriesInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateTestSeries:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 

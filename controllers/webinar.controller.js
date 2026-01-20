@@ -548,3 +548,100 @@ export const getWebinarsByEducator = async (req, res) => {
     });
   }
 };
+
+// Bulk create webinars (dev-only)
+export const bulkCreateWebinars = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const webinarsInput = Array.isArray(req.body.webinars)
+      ? req.body.webinars
+      : [];
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < webinarsInput.length; index += 1) {
+      const raw = webinarsInput[index] || {};
+
+      try {
+        const slug = (raw.title || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+
+        const existingSlug = await Webinar.findOne({ slug });
+        if (existingSlug) {
+          results.push({
+            index,
+            success: false,
+            error: "A webinar with this title already exists",
+          });
+          continue;
+        }
+
+        const payload = {
+          title: raw.title,
+          description: raw.description,
+          webinarType: raw.webinarType,
+          timing: raw.timing,
+          subject: raw.subject,
+          fees: raw.fees,
+          duration: raw.duration,
+          specialization: raw.specialization,
+          seatLimit: raw.seatLimit,
+          class: raw.class,
+          image: raw.image,
+          educatorID: raw.educatorID,
+          webinarLink: raw.webinarLink,
+          assetsLink: raw.assetsLink,
+          slug,
+        };
+
+        const newWebinar = new Webinar(payload);
+        const saved = await newWebinar.save();
+
+        try {
+          await Educator.findByIdAndUpdate(
+            raw.educatorID,
+            { $addToSet: { webinars: saved._id } },
+            { new: true }
+          );
+        } catch (updateError) {
+          console.error("Bulk webinar: educator update failed", updateError);
+        }
+
+        results.push({ index, success: true, data: saved });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create webinar",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: webinarsInput.length,
+      created,
+      failed: webinarsInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateWebinars:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};

@@ -1,6 +1,7 @@
 import Test from "../models/test.js";
 import mongoose from "mongoose";
 import { validationResult } from "express-validator";
+import Educator from "../models/educator.js";
 
 // Create a new test
 export const createTest = async (req, res) => {
@@ -711,6 +712,106 @@ export const getTestStatistics = async (req, res) => {
   } catch (error) {
     console.error("Error fetching test statistics:", error);
     res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Bulk create tests (dev-only)
+export const bulkCreateTests = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const testsInput = Array.isArray(req.body.tests) ? req.body.tests : [];
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < testsInput.length; index += 1) {
+      const raw = testsInput[index] || {};
+
+      try {
+        const slug = (raw.title || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+
+        const existingTest = await Test.findOne({ slug });
+        if (existingTest) {
+          results.push({
+            index,
+            success: false,
+            error: "A test with this title already exists",
+          });
+          continue;
+        }
+
+        const newTest = new Test({
+          title: raw.title,
+          description: raw.description,
+          image: raw.image,
+          subjects: raw.subjects,
+          class: raw.class,
+          specialization: raw.specialization,
+          duration: raw.duration,
+          overallMarks: raw.overallMarks,
+          markingType: raw.markingType || "per_question",
+          questions: raw.questions || [],
+          isTestSeriesSpecific: raw.isTestSeriesSpecific || false,
+          testSeriesID: raw.isTestSeriesSpecific ? raw.testSeriesID : undefined,
+          educatorID: raw.educatorID,
+          instructions: raw.instructions,
+          passingMarks: raw.passingMarks,
+          negativeMarking: raw.negativeMarking || false,
+          negativeMarkingRatio: raw.negativeMarkingRatio || 0.25,
+          shuffleQuestions: raw.shuffleQuestions || false,
+          showResult: raw.showResult !== undefined ? raw.showResult : true,
+          allowReview: raw.allowReview !== undefined ? raw.allowReview : true,
+          slug,
+        });
+
+        const savedTest = await newTest.save();
+
+        if (raw.educatorID) {
+          try {
+            await Educator.findByIdAndUpdate(raw.educatorID, {
+              $addToSet: { tests: savedTest._id },
+            });
+          } catch (updateError) {
+            console.warn("Bulk test: educator update failed", updateError);
+          }
+        }
+
+        results.push({ index, success: true, data: savedTest });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create test",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: testsInput.length,
+      created,
+      failed: testsInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateTests:", error);
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
       error: error.message,

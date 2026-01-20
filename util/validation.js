@@ -3736,3 +3736,160 @@ export const getPostsBySpecializationValidation = [validateSpecializationParam];
 export const searchPostsValidation = [
   query("q").trim().notEmpty().withMessage("Search query is required"),
 ];
+
+// ==================== Bulk Helpers ====================
+
+const isValidObjectIdString = (value = "") => /^[a-f\d]{24}$/i.test(value);
+
+export const validateObjectIdArray = (field = "ids") => [
+  body(field)
+    .isArray({ min: 1 })
+    .withMessage(`${field} must be a non-empty array`)
+    .custom((arr) => {
+      if (!Array.isArray(arr)) {
+        throw new Error(`${field} must be an array`);
+      }
+      const invalidIds = arr.filter((id) => !isValidObjectIdString(id));
+      if (invalidIds.length) {
+        throw new Error(
+          `${field} contains invalid ObjectId values: ${invalidIds.join(",")}`
+        );
+      }
+      return true;
+    }),
+];
+
+export const bulkCreateWebinarsValidation = [
+  body("webinars")
+    .isArray({ min: 1 })
+    .withMessage("webinars must be a non-empty array"),
+  body("webinars.*.title")
+    .notEmpty()
+    .withMessage("Title is required for each webinar"),
+  body("webinars.*.educatorID")
+    .notEmpty()
+    .withMessage("educatorID is required")
+    .custom((value) => isValidObjectIdString(value))
+    .withMessage("educatorID must be a valid ObjectId"),
+  body("webinars.*.timing")
+    .optional()
+    .custom((value) => !Number.isNaN(new Date(value).getTime()))
+    .withMessage("timing must be a valid date"),
+  body("webinars.*.seatLimit")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("seatLimit must be a positive integer"),
+];
+
+export const bulkCreateEducatorsValidation = [
+  body("educators")
+    .isArray({ min: 1 })
+    .withMessage("educators must be a non-empty array"),
+  body("educators.*.email")
+    .notEmpty()
+    .withMessage("Email is required")
+    .isEmail()
+    .withMessage("Email must be valid"),
+  body("educators.*.password")
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters"),
+];
+
+export const bulkCreateStudentsValidation = [
+  body("students")
+    .isArray({ min: 1 })
+    .withMessage("students must be a non-empty array"),
+  body("students.*.email")
+    .notEmpty()
+    .withMessage("Email is required")
+    .isEmail()
+    .withMessage("Email must be valid"),
+  body("students.*.password")
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters"),
+];
+
+export const bulkCreateLiveClassesValidation = [
+  body("liveClasses")
+    .isArray({ min: 1 })
+    .withMessage("liveClasses must be a non-empty array"),
+  body("liveClasses.*.educatorID")
+    .notEmpty()
+    .withMessage("educatorID is required")
+    .custom((value) => isValidObjectIdString(value))
+    .withMessage("educatorID must be a valid ObjectId"),
+  body("liveClasses.*.liveClassTitle")
+    .notEmpty()
+    .withMessage("liveClassTitle is required"),
+];
+
+export const bulkCreatePostsValidation = [
+  body("posts")
+    .isArray({ min: 1 })
+    .withMessage("posts must be a non-empty array"),
+  body("posts.*.educatorId")
+    .notEmpty()
+    .withMessage("educatorId is required")
+    .custom((value) => isValidObjectIdString(value))
+    .withMessage("educatorId must be a valid ObjectId"),
+  body("posts.*.title")
+    .notEmpty()
+    .withMessage("Title is required for each post"),
+];
+
+export const bulkCreateQuestionsValidation = [
+  body("questions")
+    .isArray({ min: 1 })
+    .withMessage("questions must be a non-empty array"),
+  body("questions.*.title")
+    .notEmpty()
+    .withMessage("Title is required for each question"),
+  body("questions.*.educatorId")
+    .optional()
+    .custom((value) => !value || isValidObjectIdString(value))
+    .withMessage("educatorId must be a valid ObjectId"),
+];
+
+export const bulkCreateTestsValidation = [
+  body("tests")
+    .isArray({ min: 1 })
+    .withMessage("tests must be a non-empty array"),
+  body("tests.*.title")
+    .notEmpty()
+    .withMessage("Title is required for each test"),
+  body("tests.*.educatorID")
+    .optional()
+    .custom((value) => !value || isValidObjectIdString(value))
+    .withMessage("educatorID must be a valid ObjectId"),
+];
+
+export const bulkCreateTestSeriesValidation = [
+  body("testSeries")
+    .isArray({ min: 1 })
+    .withMessage("testSeries must be a non-empty array"),
+  body("testSeries.*.title")
+    .notEmpty()
+    .withMessage("Title is required for each test series"),
+  body("testSeries.*.educatorId")
+    .optional()
+    .custom((value) => !value || isValidObjectIdString(value))
+    .withMessage("educatorId must be a valid ObjectId"),
+];
+
+export const bulkCreateCoursesValidation = [
+  body("courses")
+    .isArray({ min: 1 })
+    .withMessage("courses must be a non-empty array"),
+  body("courses.*.title")
+    .notEmpty()
+    .withMessage("Title is required for each course"),
+  body("courses.*.educatorID")
+    .notEmpty()
+    .withMessage("educatorID is required")
+    .custom((value) => isValidObjectIdString(value))
+    .withMessage("educatorID must be a valid ObjectId"),
+];

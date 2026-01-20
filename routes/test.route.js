@@ -12,7 +12,7 @@ import {
   removeQuestionFromTest,
   getTestQuestions,
   getTestStatistics,
-  getFilteredTests
+  getFilteredTests,
 } from "../controllers/test.controller.js";
 
 import {
@@ -23,10 +23,21 @@ import {
   testEducatorValidation,
   testSeriesValidation,
   testSlugValidation,
-  validateId
+  validateId,
 } from "../util/validation.js";
+import { bulkCreateTestsValidation } from "../util/validation.js";
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
+import { bulkCreateTests } from "../controllers/test.controller.js";
 
 const router = Router();
+
+// Dev-only bulk create tests
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreateTestsValidation,
+  bulkCreateTests
+);
 
 // ======================== Test CRUD Routes ========================
 
@@ -133,7 +144,11 @@ router.delete("/:id", validateId, deleteTest);
  *   questionId: ObjectId (required) - ID of the question to add
  * }
  */
-router.post("/:id/questions", testQuestionManagementValidation, addQuestionToTest);
+router.post(
+  "/:id/questions",
+  testQuestionManagementValidation,
+  addQuestionToTest
+);
 
 /**
  * @route   DELETE /api/tests/:id/questions
@@ -144,7 +159,11 @@ router.post("/:id/questions", testQuestionManagementValidation, addQuestionToTes
  *   questionId: ObjectId (required) - ID of the question to remove
  * }
  */
-router.delete("/:id/questions", testQuestionManagementValidation, removeQuestionFromTest);
+router.delete(
+  "/:id/questions",
+  testQuestionManagementValidation,
+  removeQuestionFromTest
+);
 
 /**
  * @route   GET /api/tests/:id/questions
@@ -156,7 +175,11 @@ router.delete("/:id/questions", testQuestionManagementValidation, removeQuestion
  *   limit?: number (optional, default: 20)
  * }
  */
-router.get("/:id/questions", [validateId, testQueryValidation], getTestQuestions);
+router.get(
+  "/:id/questions",
+  [validateId, testQueryValidation],
+  getTestQuestions
+);
 
 // ======================= Test Statistics and Analytics Routes =======================
 
@@ -186,7 +209,11 @@ router.get("/:id/statistics", validateId, getTestStatistics);
  *   search?: string (optional)
  * }
  */
-router.get("/educator/:educatorId", [testEducatorValidation, testQueryValidation], getTestsByEducator);
+router.get(
+  "/educator/:educatorId",
+  [testEducatorValidation, testQueryValidation],
+  getTestsByEducator
+);
 
 // ======================= Test Series-Specific Routes =======================
 
@@ -204,6 +231,10 @@ router.get("/educator/:educatorId", [testEducatorValidation, testQueryValidation
  *   search?: string (optional)
  * }
  */
-router.get("/test-series/:testSeriesId", [testSeriesValidation, testQueryValidation], getTestsByTestSeries);
+router.get(
+  "/test-series/:testSeriesId",
+  [testSeriesValidation, testQueryValidation],
+  getTestsByTestSeries
+);
 
 export default router;

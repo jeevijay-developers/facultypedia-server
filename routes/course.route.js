@@ -32,6 +32,7 @@ import {
   removeStudyMaterial,
   getCourseStatistics,
   getOverallStatistics,
+  bulkCreateCourses,
 } from "../controllers/course.controller.js";
 
 import {
@@ -54,7 +55,10 @@ import {
   validateClassParam,
   validateRatingParam,
   validateRating,
+  bulkCreateCoursesValidation,
 } from "../util/validation.js";
+
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
 const ensureUploadDir = () => {
   const uploadDir = path.join(process.cwd(), "tmp", "uploads");
@@ -82,6 +86,16 @@ const videoUpload = multer({
 });
 
 const router = express.Router();
+
+// ==================== Dev-Only Routes ====================
+
+// Bulk create courses (dev-only)
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreateCoursesValidation,
+  bulkCreateCourses
+);
 
 // ==================== CRUD Routes ====================
 

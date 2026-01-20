@@ -19,6 +19,7 @@ import {
   removeQuestionFromTest,
   getQuestionStatistics,
   bulkUploadQuestions,
+  bulkCreateQuestions,
 } from "../controllers/question.controller.js";
 
 import {
@@ -32,13 +33,23 @@ import {
   createQuestionValidation,
   updateQuestionValidation,
   testOperationValidation,
+  bulkCreateQuestionsValidation,
 } from "../util/validation.js";
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
 import multer from "multer";
 
 const upload = multer();
 
 // Routes
+
+// Dev-only bulk create questions
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreateQuestionsValidation,
+  bulkCreateQuestions
+);
 
 // GET /api/questions - Get all questions with filtering and pagination
 router.get("/", getAllQuestions);

@@ -35,15 +35,17 @@ export const createPost = async (req, res) => {
     const subjects = Array.isArray(incomingSubjects)
       ? incomingSubjects
       : subject
-      ? [subject]
-      : [];
+        ? [subject]
+        : [];
     const specializations = Array.isArray(incomingSpecializations)
       ? incomingSpecializations
       : specialization
-      ? [specialization]
-      : [];
+        ? [specialization]
+        : [];
 
-    const normalizedSubjects = subjects.map((item) => item?.toLowerCase?.() ?? item);
+    const normalizedSubjects = subjects.map(
+      (item) => item?.toLowerCase?.() ?? item
+    );
     const uniqueSubjects = [...new Set(normalizedSubjects)];
     const uniqueSpecializations = [...new Set(specializations)];
 
@@ -323,6 +325,90 @@ export const getPostsBySpecialization = async (req, res) => {
   }
 };
 
+// Bulk create posts (dev-only)
+export const bulkCreatePosts = async (req, res) => {
+  try {
+    if (handleValidation(req, res)) {
+      return;
+    }
+
+    const postsInput = Array.isArray(req.body.posts) ? req.body.posts : [];
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < postsInput.length; index += 1) {
+      const raw = postsInput[index] || {};
+
+      try {
+        const educator = await Educator.findById(raw.educatorId);
+
+        if (!educator || educator.status !== "active") {
+          results.push({
+            index,
+            success: false,
+            error: "Educator not found or inactive",
+          });
+          continue;
+        }
+
+        const subjects = Array.isArray(raw.subjects)
+          ? raw.subjects
+          : raw.subject
+            ? [raw.subject]
+            : [];
+        const specializations = Array.isArray(raw.specializations)
+          ? raw.specializations
+          : raw.specialization
+            ? [raw.specialization]
+            : [];
+
+        const normalizedSubjects = subjects.map(
+          (item) => item?.toLowerCase?.() ?? item
+        );
+        const uniqueSubjects = [...new Set(normalizedSubjects)];
+        const uniqueSpecializations = [...new Set(specializations)];
+
+        const post = await Post.create({
+          educatorId: raw.educatorId,
+          subjects: uniqueSubjects,
+          specializations: uniqueSpecializations,
+          title: raw.title,
+          description: raw.description,
+        });
+
+        await Educator.findByIdAndUpdate(raw.educatorId, {
+          $addToSet: { posts: post._id },
+        });
+
+        results.push({ index, success: true, data: post });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create post",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: postsInput.length,
+      created,
+      failed: postsInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreatePosts:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 export const searchPosts = async (req, res) => {
   try {
     const { q } = req.query;
@@ -435,7 +521,10 @@ export const deletePost = async (req, res) => {
     });
 
     try {
-      await notificationService.removeNotificationsForResource("post", post._id);
+      await notificationService.removeNotificationsForResource(
+        "post",
+        post._id
+      );
     } catch (cleanupError) {
       console.error(
         "Error removing notifications for deleted post:",

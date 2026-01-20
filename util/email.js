@@ -1,6 +1,22 @@
+/**
+ * Email utility module
+ * Primary: Resend
+ * Fallback: Nodemailer (SMTP)
+ */
+
 import nodemailer from "nodemailer";
+import * as resendService from "../services/resend.service.js";
 
 let transporter;
+
+// Check if Resend is configured
+const isResendConfigured = () => {
+  return !!process.env.RESEND_API_KEY;
+};
+
+// ============================================================
+// Nodemailer fallback functions (legacy SMTP)
+// ============================================================
 
 const getSmtpConfig = () => {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, ADMIN_EMAIL } =
@@ -35,7 +51,7 @@ const getTransporter = () => {
   return transporter;
 };
 
-export const sendPasswordResetEmail = async ({ to, otp, userType }) => {
+const sendPasswordResetEmailLegacy = async ({ to, otp, userType }) => {
   const { from } = getSmtpConfig();
   const mailer = getTransporter();
   const subject = "Reset your FacultyPedia password";
@@ -53,7 +69,7 @@ FacultyPedia Team`;
   return mailer.sendMail({ from, to, subject, text });
 };
 
-export const sendEmailVerificationOtp = async ({ to, otp, userType }) => {
+const sendEmailVerificationOtpLegacy = async ({ to, otp, userType }) => {
   const { from } = getSmtpConfig();
   const mailer = getTransporter();
   const subject = "Verify your FacultyPedia email";
@@ -72,7 +88,7 @@ FacultyPedia Team`;
   return mailer.sendMail({ from, to, subject, text });
 };
 
-export const sendInvoiceEmail = async ({ to, payout, educator, pdfBuffer }) => {
+const sendInvoiceEmailLegacy = async ({ to, payout, educator, pdfBuffer }) => {
   const { from } = getSmtpConfig();
   const mailer = getTransporter();
   const subject = `Payout Invoice - ${
@@ -103,7 +119,7 @@ FacultyPedia Team`;
   return mailer.sendMail({ from, to, subject, text, attachments });
 };
 
-export const sendBankDetailsUpdatedEmail = async ({ to, educator }) => {
+const sendBankDetailsUpdatedEmailLegacy = async ({ to, educator }) => {
   const { from, cc } = getSmtpConfig();
   const mailer = getTransporter();
   const subject = "Security Alert: Bank Details Updated";
@@ -124,4 +140,67 @@ Thanks,
 FacultyPedia Security Team`;
 
   return mailer.sendMail({ from, to, cc, subject, text });
+};
+
+// ============================================================
+// Exported functions with Resend primary, Nodemailer fallback
+// ============================================================
+
+export const sendPasswordResetEmail = async ({ to, otp, userType }) => {
+  if (isResendConfigured()) {
+    try {
+      return await resendService.sendPasswordResetOtp({ to, otp, userType });
+    } catch (error) {
+      console.warn("Resend failed, falling back to nodemailer:", error.message);
+    }
+  }
+  return sendPasswordResetEmailLegacy({ to, otp, userType });
+};
+
+export const sendEmailVerificationOtp = async ({ to, otp, userType }) => {
+  if (isResendConfigured()) {
+    try {
+      return await resendService.sendEmailVerificationOtp({ to, otp, userType });
+    } catch (error) {
+      console.warn("Resend failed, falling back to nodemailer:", error.message);
+    }
+  }
+  return sendEmailVerificationOtpLegacy({ to, otp, userType });
+};
+
+export const sendInvoiceEmail = async ({ to, payout, educator, pdfBuffer }) => {
+  if (isResendConfigured()) {
+    try {
+      return await resendService.sendPayoutInvoiceEmail({ to, payout, educator, pdfBuffer });
+    } catch (error) {
+      console.warn("Resend failed, falling back to nodemailer:", error.message);
+    }
+  }
+  return sendInvoiceEmailLegacy({ to, payout, educator, pdfBuffer });
+};
+
+export const sendBankDetailsUpdatedEmail = async ({ to, educator }) => {
+  if (isResendConfigured()) {
+    try {
+      return await resendService.sendBankDetailsUpdatedNotification({ to, educator });
+    } catch (error) {
+      console.warn("Resend failed, falling back to nodemailer:", error.message);
+    }
+  }
+  return sendBankDetailsUpdatedEmailLegacy({ to, educator });
+};
+
+// Generic email sender
+export const sendEmail = async (options) => {
+  if (isResendConfigured()) {
+    try {
+      return await resendService.sendEmail(options);
+    } catch (error) {
+      console.warn("Resend failed, falling back to nodemailer:", error.message);
+    }
+  }
+  
+  const { from } = getSmtpConfig();
+  const mailer = getTransporter();
+  return mailer.sendMail({ from, ...options });
 };

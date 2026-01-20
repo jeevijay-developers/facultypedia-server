@@ -17,6 +17,8 @@ import {
   getEducatorEnrolledStudents,
   updatePassword,
 } from "../controllers/student.controller.js";
+import { bulkCreateStudents } from "../controllers/auth.controller.js";
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
 import {
   createStudentValidation,
@@ -31,13 +33,30 @@ import {
   studentWebinarValidation,
   validateId,
   validateEducatorIdParam,
+  bulkCreateStudentsValidation,
 } from "../util/validation.js";
 
 const router = Router();
 
+// Dev-only bulk create students
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreateStudentsValidation,
+  bulkCreateStudents
+);
+
 router.post("/", createStudentValidation, createStudent);
 
 router.get("/", studentQueryValidation, getAllStudents);
+
+// ======================= Educator Enrolled Students Route =======================
+// This route must be placed before /:id to avoid educatorId being interpreted as student ID
+router.get(
+  "/educator/:educatorId/enrolled",
+  validateEducatorIdParam,
+  getEducatorEnrolledStudents
+);
 
 /**
  * @route   GET /api/students/:id

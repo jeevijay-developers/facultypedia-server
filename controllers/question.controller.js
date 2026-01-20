@@ -340,6 +340,83 @@ export const deleteQuestion = async (req, res) => {
   }
 };
 
+// Bulk create questions (dev-only)
+export const bulkCreateQuestions = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const questionsInput = Array.isArray(req.body.questions)
+      ? req.body.questions
+      : [];
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < questionsInput.length; index += 1) {
+      const raw = questionsInput[index] || {};
+      try {
+        const newQuestion = new Question({
+          title: raw.title,
+          questionType: raw.questionType,
+          educatorId: raw.educatorId,
+          questionImage: raw.questionImage,
+          subject: raw.subject,
+          specialization: raw.specialization,
+          class: raw.class,
+          topics: raw.topics,
+          options: raw.options,
+          correctOptions: raw.correctOptions,
+          difficulty: raw.difficulty,
+          marks: raw.marks,
+          explanation: raw.explanation,
+          tags: raw.tags,
+        });
+
+        const savedQuestion = await newQuestion.save();
+
+        if (raw.educatorId) {
+          await Educator.findByIdAndUpdate(
+            raw.educatorId,
+            { $addToSet: { questions: savedQuestion._id } },
+            { new: true }
+          );
+        }
+
+        results.push({ index, success: true, data: savedQuestion });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create question",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: questionsInput.length,
+      created,
+      failed: questionsInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateQuestions:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // Get questions by educator
 export const getQuestionsByEducator = async (req, res) => {
   try {

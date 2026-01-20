@@ -1,4 +1,4 @@
- import express from "express";
+import express from "express";
 import {
   createPost,
   deletePost,
@@ -9,6 +9,7 @@ import {
   getPostsBySubject,
   searchPosts,
   updatePost,
+  bulkCreatePosts,
 } from "../controllers/post.controller.js";
 import {
   createPostValidation,
@@ -18,9 +19,19 @@ import {
   updatePostValidation,
   validateEducatorIdParam,
   validateObjectId,
+  bulkCreatePostsValidation,
 } from "../util/validation.js";
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
 const router = express.Router();
+
+// Dev-only bulk create posts
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreatePostsValidation,
+  bulkCreatePosts
+);
 
 router.post("/", createPostValidation, createPost);
 router.get("/", getAllPosts);

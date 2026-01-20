@@ -22,6 +22,7 @@ import {
   updateTestSeriesRating,
   getTestSeriesStatistics,
   getOverallStatistics,
+  bulkCreateTestSeries,
   assignTestSeriesToCourse,
 } from "../controllers/testSeries.controller.js";
 
@@ -41,9 +42,19 @@ import {
   validateSubjectParam,
   validateRatingParam,
   validateCourseIdParam,
+  bulkCreateTestSeriesValidation,
 } from "../util/validation.js";
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
 const router = express.Router();
+
+// Dev-only bulk create test series
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreateTestSeriesValidation,
+  bulkCreateTestSeries
+);
 
 // ==================== CRUD Routes ====================
 

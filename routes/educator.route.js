@@ -27,7 +27,11 @@ import {
   getEducatorIntroVideoStatus,
   updateEducatorBankDetails,
 } from "../controllers/educator.controller.js";
-import { signupEducator as createEducatorProfile } from "../controllers/auth.controller.js";
+import {
+  signupEducator as createEducatorProfile,
+  bulkCreateEducators,
+} from "../controllers/auth.controller.js";
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
 import {
   validateObjectId,
@@ -54,6 +58,7 @@ import {
   validateClassParam,
   validateRatingParam,
   validateBankDetails,
+  bulkCreateEducatorsValidation,
 } from "../util/validation.js";
 import { authenticateEducator } from "../middleware/auth.middleware.js";
 import { getEducatorPaymentHistory } from "../controllers/payment.controller.js";
@@ -115,6 +120,14 @@ const ratingValidation = [
 const revenueValidation = [...validateObjectId(), ...validateRevenue];
 
 // Routes
+
+// Dev-only bulk create educators
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreateEducatorsValidation,
+  bulkCreateEducators
+);
 
 // POST /api/educators - Create educator profile (signup)
 router.post("/", educatorSignupValidation, createEducatorProfile);

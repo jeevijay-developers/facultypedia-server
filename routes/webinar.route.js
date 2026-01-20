@@ -12,7 +12,9 @@ import {
   unenrollStudent,
   getUpcomingWebinars,
   getWebinarsByEducator,
+  bulkCreateWebinars,
 } from "../controllers/webinar.controller.js";
+import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
 import {
   validateObjectId,
@@ -33,6 +35,7 @@ import {
   validateAssetsLink,
   validateStudentId,
   validateEducatorIdParam,
+  bulkCreateWebinarsValidation,
 } from "../util/validation.js";
 
 // Validation middleware for creating webinar
@@ -68,6 +71,14 @@ const updateWebinarValidation = [
 const enrollmentValidation = [...validateObjectId(), ...validateStudentId];
 
 // Routes
+
+// Dev-only bulk create webinars
+router.post(
+  "/bulk",
+  ensureDevEnvironment,
+  bulkCreateWebinarsValidation,
+  bulkCreateWebinars
+);
 
 // GET /api/webinars - Get all webinars with filtering and pagination
 router.get("/", getAllWebinars);

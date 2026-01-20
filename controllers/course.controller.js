@@ -1417,3 +1417,110 @@ export const getOverallStatistics = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// Bulk create courses (dev-only)
+export const bulkCreateCourses = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const coursesInput = Array.isArray(req.body.courses)
+      ? req.body.courses
+      : [];
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < coursesInput.length; index += 1) {
+      const raw = coursesInput[index] || {};
+
+      try {
+        // Check if course with same title exists for this educator
+        const existingCourse = await Course.findOne({
+          title: raw.title,
+          educatorID: raw.educatorID,
+          isActive: true,
+        });
+
+        if (existingCourse) {
+          results.push({
+            index,
+            success: false,
+            error: "A course with this title already exists for this educator",
+          });
+          continue;
+        }
+
+        const course = new Course({
+          title: raw.title,
+          description: raw.description,
+          courseType: raw.courseType,
+          educatorID: raw.educatorID,
+          specialization: raw.specialization,
+          class: raw.class,
+          subject: raw.subject,
+          fees: raw.fees,
+          discount: raw.discount || 0,
+          image: raw.image,
+          courseThumbnail: raw.courseThumbnail,
+          startDate: raw.startDate,
+          endDate: raw.endDate,
+          courseDuration: raw.courseDuration,
+          validDate: raw.validDate,
+          videos: raw.videos || [],
+          introVideo: raw.introVideo,
+          studyMaterials: raw.studyMaterials || [],
+          courseObjectives: raw.courseObjectives || [],
+          prerequisites: raw.prerequisites || [],
+          language: raw.language || "English",
+          certificateAvailable: raw.certificateAvailable || false,
+          maxStudents: raw.maxStudents || 100,
+        });
+
+        // Generate slug
+        course.slug = course.generateSlug();
+
+        await course.save();
+
+        // Update educator's courses array
+        try {
+          await Educator.findByIdAndUpdate(raw.educatorID, {
+            $addToSet: { courses: course._id },
+          });
+        } catch (updateError) {
+          console.warn("Bulk course: educator update failed", updateError);
+        }
+
+        results.push({ index, success: true, data: course });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create course",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: coursesInput.length,
+      created,
+      failed: coursesInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateCourses:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};

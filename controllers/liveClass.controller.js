@@ -1,5 +1,6 @@
 import { validationResult } from "express-validator";
 import LiveClass from "../models/liveClass.js";
+import Educator from "../models/educator.js";
 import notificationService from "../services/notification.service.js";
 
 // Create a new live class
@@ -54,6 +55,14 @@ export const createLiveClass = async (req, res) => {
     newLiveClass.slug = newLiveClass.generateSlug();
 
     await newLiveClass.save();
+
+    try {
+      await Educator.findByIdAndUpdate(educatorID, {
+        $addToSet: { liveClasses: newLiveClass._id },
+      });
+    } catch (updateError) {
+      console.warn("Live class create: educator update failed", updateError);
+    }
 
     // Send notification to all followers
     try {
@@ -629,6 +638,84 @@ export const markLiveClassAsCompleted = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error marking live class as completed",
+      error: error.message,
+    });
+  }
+};
+
+// Bulk create live classes (dev-only)
+export const bulkCreateLiveClasses = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const liveClassesInput = Array.isArray(req.body.liveClasses)
+      ? req.body.liveClasses
+      : [];
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < liveClassesInput.length; index += 1) {
+      const raw = liveClassesInput[index] || {};
+
+      try {
+        const newLiveClass = new LiveClass({
+          educatorID: raw.educatorID,
+          isCourseSpecific: raw.isCourseSpecific,
+          assignInCourse: raw.isCourseSpecific ? raw.assignInCourse : undefined,
+          liveClassesFee: raw.liveClassesFee,
+          subject: raw.subject,
+          liveClassSpecification: raw.liveClassSpecification,
+          introVideo: raw.introVideo,
+          classTiming: raw.classTiming,
+          classDuration: raw.classDuration,
+          liveClassTitle: raw.liveClassTitle,
+          class: raw.class,
+          description: raw.description,
+          maxStudents: raw.maxStudents,
+        });
+
+        newLiveClass.slug = newLiveClass.generateSlug();
+        await newLiveClass.save();
+
+        try {
+          await Educator.findByIdAndUpdate(raw.educatorID, {
+            $addToSet: { liveClasses: newLiveClass._id },
+          });
+        } catch (updateError) {
+          console.warn("Bulk live class: educator update failed", updateError);
+        }
+
+        results.push({ index, success: true, data: newLiveClass });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create live class",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: liveClassesInput.length,
+      created,
+      failed: liveClassesInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateLiveClasses:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error creating live classes",
       error: error.message,
     });
   }

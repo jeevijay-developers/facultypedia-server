@@ -92,6 +92,15 @@ export const processPayout = async (req, res) => {
       });
     }
 
+    // Validate minimum payout amount (RazorpayX requires minimum ₹1 = 100 paise)
+    const MIN_PAYOUT_AMOUNT = 100; // 100 paise = ₹1
+    if (payout.amount < MIN_PAYOUT_AMOUNT) {
+      return res.status(400).json({
+        success: false,
+        message: `Payout amount too low. Minimum payout is ₹1 (100 paise). Current: ${payout.amount} paise`,
+      });
+    }
+
     // Ensure idempotency key is set
     const idempotencyKey = payout.idempotencyKey || randomUUID();
     payout.idempotencyKey = idempotencyKey;
@@ -361,6 +370,20 @@ export const processBulkPayouts = async (req, res) => {
             educatorName: payout.educatorId.fullName || "Unknown",
             status: "failed",
             error: "Educator does not have a linked Fund Account",
+          });
+          failed++;
+          continue;
+        }
+
+        // Validate minimum payout amount (RazorpayX requires minimum ₹1 = 100 paise)
+        const MIN_PAYOUT_AMOUNT = 100;
+        if (payout.amount < MIN_PAYOUT_AMOUNT) {
+          results.push({
+            payoutId: payout._id.toString(),
+            educatorId: payout.educatorId._id?.toString() || "Unknown",
+            educatorName: payout.educatorId.fullName || "Unknown",
+            status: "failed",
+            error: `Payout amount too low (${payout.amount} paise). Minimum: ₹1`,
           });
           failed++;
           continue;

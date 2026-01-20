@@ -1,28 +1,29 @@
 import mongoose from "mongoose";
 
 const SUBJECTS = [
-    "biology",
-    "physics",
-    "mathematics",
-    "chemistry",
-    "english",
-    "hindi"
+  "biology",
+  "physics",
+  "mathematics",
+  "chemistry",
+  "english",
+  "hindi",
 ];
 
 const SPECIALIZATIONS = ["IIT-JEE", "NEET", "CBSE"];
 
 const CLASS_LEVELS = [
-    "class-6th",
-    "class-7th",
-    "class-8th",
-    "class-9th",
-    "class-10th",
-    "class-11th",
-    "class-12th",
-    "dropper"
+  "class-6th",
+  "class-7th",
+  "class-8th",
+  "class-9th",
+  "class-10th",
+  "class-11th",
+  "class-12th",
+  "dropper",
 ];
 
-const liveClassSchema = new mongoose.Schema({
+const liveClassSchema = new mongoose.Schema(
+  {
     educatorID: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Educator",
@@ -46,32 +47,32 @@ const liveClassSchema = new mongoose.Schema({
       min: 0,
     },
     subject: {
-        type: [{
-            type: String,
-            enum: SUBJECTS
-        }],
-        required: true,
-        validate: {
-            validator: (value) => Array.isArray(value) && value.length > 0,
-            message: 'At least one subject is required'
+      type: [
+        {
+          type: String,
+          enum: SUBJECTS,
         },
-        index: true
+      ],
+      required: true,
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length > 0,
+        message: "At least one subject is required",
+      },
+      index: true,
     },
     liveClassSpecification: {
-        type: [{
-            type: String,
-            enum: SPECIALIZATIONS
-        }],
-        required: true,
-        validate: {
-            validator: (value) => Array.isArray(value) && value.length > 0,
-            message: 'At least one specialization is required'
+      type: [
+        {
+          type: String,
+          enum: SPECIALIZATIONS,
         },
-        index: true
-    },
-    introVideo: {
-      type: String,
-      trim: true,
+      ],
+      required: true,
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length > 0,
+        message: "At least one specialization is required",
+      },
+      index: true,
     },
     classTiming: {
       type: Date,
@@ -90,9 +91,9 @@ const liveClassSchema = new mongoose.Schema({
       maxlength: 200,
     },
     class: {
-        type: [String],
-                enum: CLASS_LEVELS,
-        required: true
+      type: [String],
+      enum: CLASS_LEVELS,
+      required: true,
     },
     description: {
       type: String,
@@ -186,23 +187,23 @@ liveClassSchema.statics.findByEducator = function (educatorId) {
 };
 
 // Static method to find live classes by subject
-liveClassSchema.statics.findBySubject = function(subject) {
-    if (!subject) {
-        return this.find({ isActive: true });
-    }
+liveClassSchema.statics.findBySubject = function (subject) {
+  if (!subject) {
+    return this.find({ isActive: true });
+  }
 
-    const subjects = Array.isArray(subject) ? subject : [subject];
-    return this.find({ subject: { $in: subjects }, isActive: true });
+  const subjects = Array.isArray(subject) ? subject : [subject];
+  return this.find({ subject: { $in: subjects }, isActive: true });
 };
 
 // Static method to find live classes by specification
-liveClassSchema.statics.findBySpecification = function(specification) {
-    if (!specification) {
-        return this.find({ isActive: true });
-    }
+liveClassSchema.statics.findBySpecification = function (specification) {
+  if (!specification) {
+    return this.find({ isActive: true });
+  }
 
-    const specs = Array.isArray(specification) ? specification : [specification];
-    return this.find({ liveClassSpecification: { $in: specs }, isActive: true });
+  const specs = Array.isArray(specification) ? specification : [specification];
+  return this.find({ liveClassSpecification: { $in: specs }, isActive: true });
 };
 
 // Static method to find live classes by class

@@ -220,6 +220,15 @@ const educatorSchema = new mongoose.Schema(
         trim: true,
       },
     ],
+    liveClasses: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "LiveClass",
+        },
+      ],
+      default: [],
+    },
     courses: {
       type: [
         {

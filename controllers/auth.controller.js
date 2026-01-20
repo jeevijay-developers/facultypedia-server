@@ -585,8 +585,9 @@ export const loginEducator = async (req, res) => {
     }
 
     const { email, password } = req.body;
+    const normalizedEmail = normalizeString(email).toLowerCase();
 
-    const educator = await Educator.findOne({ email }).select("+password");
+    const educator = await Educator.findOne({ email: normalizedEmail }).select("+password");
 
     if (!educator) {
       return res.status(401).json({
@@ -766,6 +767,298 @@ export const loginStudent = async (req, res) => {
   }
 };
 
+// Bulk create educators (dev-only)
+export const bulkCreateEducators = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const educatorsInput = Array.isArray(req.body.educators)
+      ? req.body.educators
+      : [];
+
+    const normalizedEmails = educatorsInput
+      .map((item) => normalizeString(item?.email).toLowerCase())
+      .filter(Boolean);
+
+    const existingEducators = await Educator.find({
+      email: { $in: normalizedEmails },
+    }).select("email");
+
+    const existingEmailSet = new Set(
+      existingEducators.map((entry) => entry.email?.toLowerCase())
+    );
+    const seenEmailSet = new Set();
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < educatorsInput.length; index += 1) {
+      const raw = educatorsInput[index] || {};
+      const normalizedFirstName = normalizeString(raw.firstName);
+      const normalizedLastName = normalizeString(raw.lastName);
+      const normalizedEmail = normalizeString(raw.email).toLowerCase();
+      const normalizedMobile = normalizeString(raw.mobileNumber);
+      const normalizedPreferredUsername = normalizeUsernameInput(
+        raw.username || ""
+      );
+
+      if (!normalizedEmail) {
+        results.push({
+          index,
+          success: false,
+          error: "Email is required",
+        });
+        continue;
+      }
+
+      if (
+        existingEmailSet.has(normalizedEmail) ||
+        seenEmailSet.has(normalizedEmail)
+      ) {
+        results.push({
+          index,
+          success: false,
+          error: "Educator with this email already exists",
+        });
+        continue;
+      }
+
+      seenEmailSet.add(normalizedEmail);
+
+      const { values: specializationValues, invalid: invalidSpecializations } =
+        normalizeSpecializations(
+          raw.specialization || VALID_SPECIALIZATIONS[0]
+        );
+
+      if (invalidSpecializations.length) {
+        results.push({
+          index,
+          success: false,
+          error: `Invalid specialization(s): ${invalidSpecializations.join(", ")}`,
+        });
+        continue;
+      }
+
+      const { values: subjectValues, invalid: invalidSubjects } =
+        normalizeSubjects(raw.subject || VALID_SUBJECTS[0]);
+
+      if (invalidSubjects.length) {
+        results.push({
+          index,
+          success: false,
+          error: `Invalid subject(s): ${invalidSubjects.join(", ")}`,
+        });
+        continue;
+      }
+
+      const { values: classValues } = normalizeClasses(
+        raw.class || DEFAULT_CLASS_OPTIONS
+      );
+
+      const sanitizedWorkExperience = sanitizeExperienceArray(
+        raw.workExperience
+      );
+      const sanitizedQualification = sanitizeQualificationArray(
+        raw.qualification
+      );
+      const sanitizedSocials = sanitizeSocialLinks(raw.socials);
+
+      const username = await generateUniqueUsername({
+        preferred: normalizedPreferredUsername,
+        firstName: normalizedFirstName,
+        lastName: normalizedLastName,
+        email: normalizedEmail,
+      });
+
+      const fullName =
+        buildFullName(normalizedFirstName, normalizedLastName) || username;
+
+      const educatorData = {
+        firstName: normalizedFirstName || undefined,
+        lastName: normalizedLastName || undefined,
+        fullName,
+        username,
+        email: normalizedEmail,
+        password: raw.password,
+        specialization: specializationValues,
+        class: classValues.length ? classValues : DEFAULT_CLASS_OPTIONS,
+        mobileNumber: normalizedMobile,
+        bio: normalizeString(raw.bio),
+        description: normalizeString(raw.bio),
+        subject: subjectValues,
+        workExperience: sanitizedWorkExperience,
+        qualification: sanitizedQualification,
+      };
+
+      if (Object.keys(sanitizedSocials).length) {
+        educatorData.socials = sanitizedSocials;
+      }
+
+      const calculatedYOE = calculateYOE(sanitizedWorkExperience);
+      if (calculatedYOE > 0) {
+        educatorData.yoe = calculatedYOE;
+      }
+
+      if (raw.introVideoLink) {
+        educatorData.introVideo = normalizeString(raw.introVideoLink);
+      }
+
+      try {
+        const educator = new Educator(educatorData);
+        await educator.save();
+
+        results.push({
+          index,
+          success: true,
+          data: sanitizeEducator(educator),
+        });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create educator",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: educatorsInput.length,
+      created,
+      failed: educatorsInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateEducators:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Bulk create students (dev-only)
+export const bulkCreateStudents = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+        errors: errors.array(),
+      });
+    }
+
+    const studentsInput = Array.isArray(req.body.students)
+      ? req.body.students
+      : [];
+
+    const normalizedEmails = studentsInput
+      .map((item) => normalizeString(item?.email).toLowerCase())
+      .filter(Boolean);
+
+    const existingStudents = await Student.find({
+      email: { $in: normalizedEmails },
+    }).select("email");
+
+    const existingEmailSet = new Set(
+      existingStudents.map((entry) => entry.email?.toLowerCase())
+    );
+    const seenEmailSet = new Set();
+
+    const results = [];
+    let created = 0;
+
+    for (let index = 0; index < studentsInput.length; index += 1) {
+      const raw = studentsInput[index] || {};
+      const normalizedName = normalizeString(raw.name);
+      const normalizedUsername = normalizeUsernameInput(raw.username);
+      const normalizedEmail = normalizeString(raw.email).toLowerCase();
+      const normalizedMobile = normalizeString(raw.mobileNumber);
+      const normalizedClass = normalizeStudentClass(raw.class);
+
+      if (!normalizedEmail) {
+        results.push({
+          index,
+          success: false,
+          error: "Email is required",
+        });
+        continue;
+      }
+
+      if (
+        existingEmailSet.has(normalizedEmail) ||
+        seenEmailSet.has(normalizedEmail)
+      ) {
+        results.push({
+          index,
+          success: false,
+          error: "Student with this email already exists",
+        });
+        continue;
+      }
+
+      seenEmailSet.add(normalizedEmail);
+
+      const finalUsername =
+        normalizedUsername ||
+        normalizeUsernameInput(normalizedEmail.split("@")?.[0]) ||
+        `student_${Date.now()}_${index}`;
+
+      try {
+        const student = new Student({
+          name: normalizedName || finalUsername,
+          username: finalUsername,
+          password: await bcrypt.hash(raw.password, 10),
+          mobileNumber: normalizedMobile,
+          email: normalizedEmail,
+          address: raw.address,
+          image: raw.image,
+          specialization: raw.specialization,
+          class: normalizedClass,
+          deviceToken: raw.deviceToken,
+          preferences: raw.preferences,
+        });
+
+        await student.save();
+
+        results.push({ index, success: true, data: sanitizeStudent(student) });
+        created += 1;
+      } catch (error) {
+        results.push({
+          index,
+          success: false,
+          error: error?.message || "Failed to create student",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      total: studentsInput.length,
+      created,
+      failed: studentsInput.length - created,
+      results,
+    });
+  } catch (error) {
+    console.error("Error in bulkCreateStudents:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 export const requestPasswordReset = async (req, res) => {
   try {
     if (handleValidationErrors(req, res)) {
@@ -778,6 +1071,9 @@ export const requestPasswordReset = async (req, res) => {
     const isEducator = role === "educator";
     const Model = isEducator ? Educator : Student;
     const userModelName = isEducator ? "Educator" : "Student";
+    // Treat anything other than explicit production as non-prod (dev/staging/local).
+    // This prevents accidental OTP enforcement when NODE_ENV is unset locally.
+    const isDevMode = process.env.NODE_ENV !== "production";
 
     const user = await Model.findOne({ email: normalizedEmail });
 
@@ -785,6 +1081,18 @@ export const requestPasswordReset = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Account not found",
+      });
+    }
+
+    // In dev mode, skip OTP generation and email sending
+    if (isDevMode) {
+      console.log(
+        `[DEV MODE] Password reset requested for ${normalizedEmail} (${role}) - OTP email skipped`
+      );
+      return res.status(200).json({
+        success: true,
+        message:
+          "In dev mode: You can reset password without OTP. Use /api/auth/reset-password with email, userType, and newPassword (otp can be any value or omitted).",
       });
     }
 
@@ -852,36 +1160,51 @@ export const resetPassword = async (req, res) => {
     const { email, userType, otp, newPassword } = req.body;
     const normalizedEmail = email?.toLowerCase?.();
     const role = (userType || "").toLowerCase();
+    // Treat anything other than explicit production as non-prod (dev/staging/local).
+    // This prevents accidental OTP enforcement when NODE_ENV is unset locally.
+    const isDevMode = process.env.NODE_ENV !== "production";
 
-    const tokenDoc = await PasswordResetToken.findOne({
-      email: normalizedEmail,
-      role,
-    });
-
-    if (!tokenDoc) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired OTP",
+    // In dev mode, allow password reset without OTP verification
+    if (!isDevMode) {
+      const tokenDoc = await PasswordResetToken.findOne({
+        email: normalizedEmail,
+        role,
       });
-    }
 
-    const now = new Date();
-    if (tokenDoc.expiresAt <= now) {
+      if (!tokenDoc) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired OTP",
+        });
+      }
+
+      const now = new Date();
+      if (tokenDoc.expiresAt <= now) {
+        await PasswordResetToken.deleteOne({ _id: tokenDoc._id });
+        return res.status(400).json({
+          success: false,
+          message: "OTP expired. Please request a new one.",
+        });
+      }
+
+      const hashedOtp = hashToken(otp);
+      if (hashedOtp !== tokenDoc.otpHash) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid OTP",
+        });
+      }
+
+      // Delete token after successful verification in production
       await PasswordResetToken.deleteOne({ _id: tokenDoc._id });
-      return res.status(400).json({
-        success: false,
-        message: "OTP expired. Please request a new one.",
-      });
+    } else {
+      // In dev mode, log that OTP is being bypassed
+      console.log(
+        `[DEV MODE] Password reset OTP bypassed for ${normalizedEmail} (${role})`
+      );
     }
 
-    const hashedOtp = hashToken(otp);
-    if (hashedOtp !== tokenDoc.otpHash) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid OTP",
-      });
-    }
-
+    // Find user (works in both dev and production mode)
     const isEducator = role === "educator";
     const Model = isEducator ? Educator : Student;
     const userQuery = Model.findOne({ email: normalizedEmail });
@@ -892,7 +1215,6 @@ export const resetPassword = async (req, res) => {
     const user = await userQuery;
 
     if (!user) {
-      await PasswordResetToken.deleteOne({ _id: tokenDoc._id });
       return res.status(404).json({
         success: false,
         message: "Account not found",
@@ -908,11 +1230,11 @@ export const resetPassword = async (req, res) => {
       await user.save();
     }
 
-    await PasswordResetToken.deleteOne({ _id: tokenDoc._id });
-
     res.status(200).json({
       success: true,
-      message: "Password reset successful",
+      message: isDevMode
+        ? "Password reset successful (dev mode - OTP bypassed)"
+        : "Password reset successful",
     });
   } catch (error) {
     console.error("Error during password reset:", error);
