@@ -14,7 +14,8 @@ const getResendClient = () => {
 };
 
 const getFromEmail = () => {
-  return process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@facultypedia.com";
+  return `Facultypedia <${fromEmail}>`;
 };
 
 /**

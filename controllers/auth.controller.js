@@ -82,12 +82,15 @@ const sendVerificationCode = async ({ user, role }) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    console.log(`[OTP] Sending verification code to ${normalizedEmail} (${role}), OTP: ${otp}`);
+    
     await sendEmailVerificationOtp({
       to: normalizedEmail,
       otp,
       userType: role,
     });
 
+    console.log(`[OTP] Successfully sent verification code to ${normalizedEmail}`);
     return { sent: true };
   } catch (error) {
     console.error("Error sending verification code:", error);
@@ -557,15 +560,14 @@ export const signupEducator = async (req, res) => {
     // Auto-send email verification OTP (non-blocking for UX)
     await sendVerificationCode({ user: educator, role: "educator" });
 
-    const tokens = await issueTokens(educator._id);
+    // Note: No tokens issued on educator signup - educator must login after verification
     const educatorDataResponse = sanitizeEducator(educator);
 
     res.status(201).json({
       success: true,
-      message: "Signup successful",
+      message: "Signup successful. Please verify your email and login to continue.",
       data: {
         educator: educatorDataResponse,
-        tokens,
       },
     });
   } catch (error) {
