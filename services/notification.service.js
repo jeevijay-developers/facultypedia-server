@@ -647,7 +647,9 @@ class NotificationService {
   buildResourceRoute(type, payload = {}) {
     const slug = this.resolveSlug(payload);
     const id = this.resolveId(payload);
-    const slugOrId = slug || id;
+    
+    // For live_class, always use ID (frontend expects /1-1-live-class/:id)
+    const slugOrId = type === "live_class" ? (id || slug) : (slug || id);
 
     if (!slugOrId) {
       return null;

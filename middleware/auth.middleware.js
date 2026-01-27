@@ -26,7 +26,9 @@ export const authenticateEducator = async (req, res, next) => {
       return buildErrorResponse(res, 403, "Educator access required");
     }
 
-    const educator = await Educator.findById(payload.sub);
+    const educator = await Educator.findById(payload.sub).select(
+      "+razorpayFundAccountId +razorpayContactId"
+    );
     if (!educator) {
       return buildErrorResponse(res, 404, "Educator not found");
     }

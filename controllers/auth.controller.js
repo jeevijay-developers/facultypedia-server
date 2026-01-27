@@ -1349,17 +1349,10 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
+    // For pre-signup verification, user may not exist yet
     const user = await Model.findOne({ email: normalizedEmail });
 
-    if (!user) {
-      await EmailVerificationToken.deleteOne({ _id: tokenDoc._id });
-      return res.status(404).json({
-        success: false,
-        message: "Account not found",
-      });
-    }
-
-    if (!user.isEmailVerified) {
+    if (user && !user.isEmailVerified) {
       user.isEmailVerified = true;
       await user.save();
     }
@@ -1372,6 +1365,96 @@ export const verifyEmail = async (req, res) => {
     });
   } catch (error) {
     console.error("Error during email verification:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Request email verification OTP BEFORE signup (user does not exist yet)
+ * This is used to verify email before creating the account
+ */
+export const requestPreSignupVerification = async (req, res) => {
+  try {
+    if (handleValidationErrors(req, res)) {
+      return;
+    }
+
+    const { email, userType } = req.body;
+    const normalizedEmail = email?.toLowerCase?.();
+    const role = (userType || "").toLowerCase();
+    const isEducator = role === "educator";
+    const Model = isEducator ? Educator : Student;
+
+    // Check if user already exists
+    const existingUser = await Model.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists",
+      });
+    }
+
+    const now = Date.now();
+
+    // Check for existing token and throttle
+    const existingToken = await EmailVerificationToken.findOne({
+      email: normalizedEmail,
+      role,
+    });
+
+    if (existingToken) {
+      if (existingToken.expiresAt && existingToken.expiresAt <= new Date(now)) {
+        await EmailVerificationToken.deleteOne({ _id: existingToken._id });
+      } else if (
+        existingToken.updatedAt &&
+        now - existingToken.updatedAt.getTime() < OTP_THROTTLE_MS
+      ) {
+        return res.status(429).json({
+          success: false,
+          message: "OTP already sent. Please wait before requesting again.",
+          retryAfterMs: OTP_THROTTLE_MS - (now - existingToken.updatedAt.getTime()),
+        });
+      }
+    }
+
+    const otp = generateOtp();
+    const otpHash = hashToken(otp);
+    const expiresAt = new Date(now + VERIFICATION_OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    await EmailVerificationToken.findOneAndUpdate(
+      { email: normalizedEmail, role },
+      {
+        email: normalizedEmail,
+        role,
+        // No user reference for pre-signup
+        user: null,
+        userModel: isEducator ? "Educator" : "Student",
+        otpHash,
+        expiresAt,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    console.log(`[OTP] Sending pre-signup verification code to ${normalizedEmail} (${role}), OTP: ${otp}`);
+
+    await sendEmailVerificationOtp({
+      to: normalizedEmail,
+      otp,
+      userType: role,
+    });
+
+    console.log(`[OTP] Successfully sent pre-signup verification code to ${normalizedEmail}`);
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to email",
+    });
+  } catch (error) {
+    console.error("Error during pre-signup email verification request:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

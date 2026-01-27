@@ -10,6 +10,7 @@ import {
   requestPasswordReset,
   resetPassword,
   requestEmailVerification,
+  requestPreSignupVerification,
   verifyEmail,
   adminLogin,
   adminSignup,
@@ -79,6 +80,11 @@ router.post(
   "/request-email-verification",
   emailVerificationRequestValidation,
   requestEmailVerification
+);
+router.post(
+  "/request-presignup-verification",
+  emailVerificationRequestValidation,
+  requestPreSignupVerification
 );
 router.post(
   "/resend-email-verification",
