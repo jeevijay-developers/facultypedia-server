@@ -114,6 +114,7 @@ const getStudyMaterialUploadOptions = (file) => ({
   folder: STUDY_MATERIAL_FOLDER,
   resource_type: "raw",
   type: "upload",
+  access_mode: "public",
   overwrite: false,
   use_filename: false,
   unique_filename: false,

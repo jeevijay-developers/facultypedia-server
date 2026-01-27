@@ -384,7 +384,15 @@ export const getCourseById = async (req, res) => {
       .populate("enrolledStudents", "fullName email")
       .populate("purchase", "fullName email")
       .populate("liveClass", "title timing duration")
-      .populate("testSeries", "title description");
+      .populate({
+        path: "testSeries",
+        select: "title description slug tests isCourseSpecific isActive",
+        match: { isActive: true },
+        populate: {
+          path: "tests",
+          select: "title slug description duration totalQuestions",
+        },
+      });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -418,7 +426,15 @@ export const getCourseBySlug = async (req, res) => {
       )
       .populate("enrolledStudents", "fullName email")
       .populate("liveClass", "title timing duration")
-      .populate("testSeries", "title description");
+      .populate({
+        path: "testSeries",
+        select: "title description slug tests isCourseSpecific isActive",
+        match: { isActive: true },
+        populate: {
+          path: "tests",
+          select: "title slug description duration totalQuestions",
+        },
+      });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
