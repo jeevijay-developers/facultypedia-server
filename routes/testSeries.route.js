@@ -26,7 +26,7 @@ import {
   assignTestSeriesToCourse,
 } from "../controllers/testSeries.controller.js";
 
-import { uploadGenericImage } from "../config/cloudinary.js";
+import { uploadGenericImage, processGenericImageUpload } from "../config/imagekit.js";
 
 import {
   createTestSeriesValidation,

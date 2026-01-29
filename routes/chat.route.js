@@ -11,7 +11,7 @@ import {
 } from "../controllers/chat.controller.js";
 import { authenticateAdminOrEducator } from "../middleware/auth.middleware.js";
 import { body, param } from "express-validator";
-import { uploadGenericImage } from "../config/cloudinary.js";
+import { uploadGenericImage, processGenericImageUpload } from "../config/imagekit.js";
 
 const router = express.Router();
 

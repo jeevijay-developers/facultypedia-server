@@ -1,6 +1,6 @@
 import { validationResult } from "express-validator";
 import Educator from "../models/educator.js";
-import { deleteCloudinaryAsset } from "../config/cloudinary.js";
+import { deleteCloudinaryAsset, processEducatorImageUpload } from "../config/imagekit.js";
 
 const handleValidationErrors = (req, res) => {
   const errors = validationResult(req);
@@ -118,18 +118,22 @@ export const updateEducatorImageController = async (req, res) => {
       });
     }
 
-    const previousPublicId = educator.image?.publicId;
+    const previousFileId = educator.image?.publicId || educator.image?.fileId;
 
-    educator.profilePicture = req.file.path;
+    // Upload to ImageKit
+    const uploadResult = await processEducatorImageUpload(req.file);
+
+    educator.profilePicture = uploadResult.url;
     educator.image = {
-      publicId: req.file.filename,
-      url: req.file.path,
+      publicId: uploadResult.fileId,
+      fileId: uploadResult.fileId,
+      url: uploadResult.url,
     };
 
     await educator.save();
 
-    if (previousPublicId && previousPublicId !== req.file.filename) {
-      await deleteCloudinaryAsset(previousPublicId);
+    if (previousFileId && previousFileId !== uploadResult.fileId) {
+      await deleteCloudinaryAsset(previousFileId);
     }
 
     const sanitized = sanitizeEducator(educator);

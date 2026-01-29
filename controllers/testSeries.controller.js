@@ -4,6 +4,7 @@ import Course from "../models/course.js";
 import mongoose from "mongoose";
 import notificationService from "../services/notification.service.js";
 import Educator from "../models/educator.js";
+import { processGenericImageUpload } from "../config/imagekit.js";
 
 // ==================== CRUD Operations ====================
 
@@ -314,16 +315,19 @@ export const updateTestSeriesImage = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    if (!req.file || !req.file.path) {
+    if (!req.file || !req.file.buffer) {
       return res
         .status(400)
         .json({ message: "Image file is required for this operation" });
     }
 
+    // Upload to ImageKit
+    const uploadResult = await processGenericImageUpload(req.file, "test");
+
     const { id } = req.params;
     const testSeries = await TestSeries.findOneAndUpdate(
       { _id: id, isActive: true },
-      { image: req.file.path, updatedAt: Date.now() },
+      { image: uploadResult.url, updatedAt: Date.now() },
       { new: true, runValidators: false }
     );
 

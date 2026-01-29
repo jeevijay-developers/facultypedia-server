@@ -26,6 +26,7 @@ import educatorMessageRoutes from "./routes/educatorMessage.route.js";
 import chatRoutes from "./routes/chat.route.js";
 import queryRoutes from "./routes/query.route.js";
 import resultRoutes from "./routes/result.route.js";
+import progressRoutes from "./routes/progress.route.js";
 import connectDB from "./util/DBConnect.js";
 import initializeNotificationSocket from "./sockets/notification.socket.js";
 import { initializeChatNamespace } from "./sockets/chat.socket.js";
@@ -105,6 +106,7 @@ APP.use("/api/payments", paymentRoutes);
 APP.use("/api/educator-update", educatorUpdateRoutes);
 APP.use("/api/upload", uploadRoutes);
 APP.use("/api/notifications", notificationRoutes);
+APP.use("/api/progress", progressRoutes);
 
 const PORT = process.env.PORT || 5000;
 

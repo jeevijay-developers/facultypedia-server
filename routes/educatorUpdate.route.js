@@ -18,7 +18,7 @@ import {
   validatePayPerHourFee,
   validateVimeoEmbed,
 } from "../util/validation.js";
-import { uploadEducatorImage } from "../config/cloudinary.js";
+import { uploadEducatorImage } from "../config/imagekit.js";
 import multer from "multer";
 
 const router = express.Router();

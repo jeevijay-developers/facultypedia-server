@@ -3,11 +3,12 @@ import {
   uploadGenericImage,
   uploadStudyMaterialDoc,
   uploadStudyMaterialPdfBuffer,
-} from "../config/cloudinary.js";
+  processGenericImageUpload,
+} from "../config/imagekit.js";
 
 const router = express.Router();
 
-router.post("/image", uploadGenericImage.single("image"), (req, res) => {
+router.post("/image", uploadGenericImage.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res
@@ -15,11 +16,15 @@ router.post("/image", uploadGenericImage.single("image"), (req, res) => {
         .json({ success: false, message: "No image file provided" });
     }
 
+    // Upload to ImageKit
+    const type = req.query.type || "misc";
+    const result = await processGenericImageUpload(req.file, type);
+
     res.status(200).json({
       success: true,
       message: "Image uploaded successfully",
-      imageUrl: req.file.path,
-      publicId: req.file.filename,
+      imageUrl: result.url,
+      publicId: result.fileId,
     });
   } catch (error) {
     console.error("Upload error:", error);

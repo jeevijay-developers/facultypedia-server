@@ -16,7 +16,7 @@ import {
   validateObjectId,
 } from "../util/validation.js";
 import { MAX_STUDY_MATERIAL_FILE_COUNT } from "../util/studyMaterial.js";
-import { uploadStudyMaterialDoc } from "../config/cloudinary.js";
+import { uploadStudyMaterialDoc } from "../config/imagekit.js";
 
 const router = express.Router();
 

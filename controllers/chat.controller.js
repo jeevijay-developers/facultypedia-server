@@ -2,6 +2,7 @@ import { validationResult } from "express-validator";
 import ChatService from "../services/chat.service.js";
 import Conversation from "../models/conversation.js";
 import Admin from "../models/admin.js";
+import { processGenericImageUpload } from "../config/imagekit.js";
 
 const chatService = ChatService.getInstance();
 
@@ -15,7 +16,9 @@ export const uploadChatImage = async (req, res) => {
       });
     }
 
-    const url = req.file.path || req.file.secure_url;
+    // Upload to ImageKit
+    const uploadResult = await processGenericImageUpload(req.file, "misc");
+    const url = uploadResult.url;
 
     if (!url) {
       return res.status(500).json({
@@ -27,8 +30,9 @@ export const uploadChatImage = async (req, res) => {
     const attachment = {
       url,
       type: "image",
-      filename: req.file.originalname || req.file.filename,
+      filename: req.file.originalname || uploadResult.name,
       size: req.file.size,
+      fileId: uploadResult.fileId,
     };
 
     return res.status(201).json({

@@ -5,7 +5,7 @@ import { determineStudyMaterialFileType } from "../util/studyMaterial.js";
 import {
   deleteCloudinaryAsset,
   uploadStudyMaterialPdfBuffer,
-} from "../config/cloudinary.js";
+} from "../config/imagekit.js";
 
 const normalizeBoolean = (value) =>
   value === true || value === "true" || value === 1 || value === "1";
@@ -65,7 +65,7 @@ const cleanupUploadedDocs = async (docs = []) => {
   );
 };
 
-const uploadFilesToCloudinary = async (files = []) => {
+const uploadFilesToStorage = async (files = []) => {
   if (!Array.isArray(files) || files.length === 0) {
     return [];
   }
@@ -99,8 +99,9 @@ const uploadFilesToCloudinary = async (files = []) => {
             ? result.bytes
             : undefined,
         bytes: result?.bytes,
-        filename: result?.public_id,
-        public_id: result?.public_id,
+        filename: result?.public_id || result?.fileId,
+        public_id: result?.public_id || result?.fileId,
+        fileId: result?.fileId,
         resource_type: result?.resource_type || "raw",
         secure_url: result?.secure_url || result?.url,
         path: result?.secure_url || result?.url,
@@ -217,8 +218,8 @@ export const createStudyMaterial = async (req, res) => {
       });
     }
 
-    const cloudinaryFiles = await uploadFilesToCloudinary(req.files);
-    uploadedDocs = buildDocsFromFiles(cloudinaryFiles);
+    const uploadedFiles = await uploadFilesToStorage(req.files);
+    uploadedDocs = buildDocsFromFiles(uploadedFiles);
 
     if (uploadedDocs.length === 0) {
       await cleanupUploadedDocs(uploadedDocs);
@@ -422,8 +423,8 @@ export const updateStudyMaterial = async (req, res) => {
     }
 
     if (req.files && req.files.length > 0) {
-      const cloudinaryFiles = await uploadFilesToCloudinary(req.files);
-      newlyUploadedDocs = buildDocsFromFiles(cloudinaryFiles);
+      const uploadedFiles = await uploadFilesToStorage(req.files);
+      newlyUploadedDocs = buildDocsFromFiles(uploadedFiles);
       if (newlyUploadedDocs.length > 0) {
         material.docs.push(...newlyUploadedDocs);
       }
