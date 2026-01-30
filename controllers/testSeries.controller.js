@@ -223,10 +223,10 @@ export const getTestSeriesById = async (req, res) => {
     const testSeries = await TestSeries.findOne({ _id: id, isActive: true })
       .populate(
         "educatorId",
-        "fullName username email profilePicture specialization"
+        "firstName lastName fullName username email profilePicture image specialization bio description qualification yearsExperience"
       )
       .populate("enrolledStudents", "fullName email")
-      .populate("tests", "title description duration totalMarks questions")
+      .populate("tests", "title description duration overallMarks totalMarks questions negativeMarking")
       .populate("courseId", "title slug");
 
     if (!testSeries) {
@@ -253,10 +253,10 @@ export const getTestSeriesBySlug = async (req, res) => {
     const testSeries = await TestSeries.findOne({ slug, isActive: true })
       .populate(
         "educatorId",
-        "fullName username email profilePicture specialization"
+        "firstName lastName fullName username email profilePicture image specialization bio description qualification yearsExperience"
       )
       .populate("enrolledStudents", "fullName email")
-      .populate("tests", "title description duration totalMarks questions")
+      .populate("tests", "title description duration overallMarks totalMarks questions negativeMarking")
       .populate("courseId", "title slug");
 
     if (!testSeries) {
