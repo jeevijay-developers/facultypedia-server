@@ -31,6 +31,7 @@ const testSeriesSchema = new mongoose.Schema({
     type: String,
     required: false,
     trim: true,
+    default: "/fallback-img/Test_Series.png",
   },
   educatorId: {
     type: mongoose.Schema.Types.ObjectId,

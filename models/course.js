@@ -81,6 +81,7 @@ const courseSchema = new mongoose.Schema({
     type: String,
     required: false,
     trim: true,
+    default: "/fallback-img/Course_2026.png",
   },
   courseThumbnail: {
     type: String,

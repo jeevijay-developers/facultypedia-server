@@ -85,6 +85,7 @@ const webinarSchema = new mongoose.Schema({
     type: String,
     required: false,
     trim: true,
+    default: "/fallback-img/Webinar_2026.png",
   },
   educatorID: {
     type: mongoose.Schema.Types.ObjectId,
