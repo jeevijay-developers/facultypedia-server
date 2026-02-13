@@ -383,7 +383,7 @@ export const getCourseById = async (req, res) => {
       )
       .populate("enrolledStudents", "fullName email")
       .populate("purchase", "fullName email")
-      .populate("liveClass", "title timing duration")
+      .populate("liveClass", "liveClassTitle classTiming classDuration isCourseSpecific liveClassesFee liveClassLink recordingURL isCompleted")
       .populate({
         path: "testSeries",
         select: "title description slug tests isCourseSpecific isActive",
@@ -425,7 +425,7 @@ export const getCourseBySlug = async (req, res) => {
         "fullName username email profilePicture specialization"
       )
       .populate("enrolledStudents", "fullName email")
-      .populate("liveClass", "title timing duration")
+      .populate("liveClass", "liveClassTitle classTiming classDuration isCourseSpecific liveClassesFee liveClassLink recordingURL isCompleted")
       .populate({
         path: "testSeries",
         select: "title description slug tests isCourseSpecific isActive",

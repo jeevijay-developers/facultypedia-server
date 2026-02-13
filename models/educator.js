@@ -104,6 +104,14 @@ const educatorSchema = new mongoose.Schema(
         "Please provide a valid 10-digit Indian mobile number",
       ],
     },
+    whatsappNumber: {
+      type: String,
+      required: [true, "WhatsApp number is required"],
+      match: [
+        /^[6-9]\d{9}$/,
+        "Please provide a valid 10-digit Indian WhatsApp number",
+      ],
+    },
     profilePicture: {
       type: String,
       trim: true,

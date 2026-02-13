@@ -414,6 +414,7 @@ export const signupEducator = async (req, res) => {
       specialization,
       class: classesInput,
       mobileNumber,
+      whatsappNumber,
       introVideoLink,
       subject,
       workExperience,
@@ -426,6 +427,7 @@ export const signupEducator = async (req, res) => {
     const normalizedLastName = normalizeString(lastName);
     const normalizedEmail = normalizeString(email).toLowerCase();
     const normalizedMobile = normalizeString(mobileNumber);
+    const normalizedWhatsapp = normalizeString(whatsappNumber);
     const normalizedPreferredUsername = normalizeUsernameInput(
       preferredUsername || ""
     );
@@ -533,6 +535,7 @@ export const signupEducator = async (req, res) => {
       specialization: specializationValues,
       class: classValues.length ? classValues : DEFAULT_CLASS_OPTIONS,
       mobileNumber: normalizedMobile,
+      whatsappNumber: normalizedWhatsapp,
       bio: normalizedBio,
       description: normalizedBio,
       subject: subjectValues,

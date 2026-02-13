@@ -247,7 +247,7 @@ const courseSchema = new mongoose.Schema({
   liveClass: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Webinar",
+      ref: "LiveClass",
     },
   ],
   testSeries: [

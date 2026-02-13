@@ -43,8 +43,15 @@ const liveClassSchema = new mongoose.Schema(
     },
     liveClassesFee: {
       type: Number,
-      required: true,
+      required: function () {
+        // Fee is not required for course-specific classes (included in course price)
+        return !this.isCourseSpecific;
+      },
       min: 0,
+      default: function () {
+        // Default to 0 for course-specific classes
+        return this.isCourseSpecific ? 0 : undefined;
+      },
     },
     subject: {
       type: [
@@ -133,6 +140,10 @@ const liveClassSchema = new mongoose.Schema(
     isCompleted: {
       type: Boolean,
       default: false,
+    },
+    liveClassLink: {
+      type: String,
+      trim: true,
     },
     recordingURL: {
       type: String,

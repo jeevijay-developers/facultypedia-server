@@ -418,6 +418,10 @@ export const educatorSignupValidation = [
   validateEmail(),
   validatePassword(),
   validateMobileNumber(),
+  body("whatsappNumber")
+    .trim()
+    .matches(/^[6-9]\d{9}$/)
+    .withMessage("Please provide a valid 10-digit Indian WhatsApp number"),
   body("bio")
     .trim()
     .notEmpty()
