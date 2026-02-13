@@ -25,7 +25,7 @@ export const createVideo = async (req, res) => {
       return;
     }
 
-    const { title, links, courseId } = req.body;
+    const { title, links, courseId, educatorID } = req.body;
     const isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific);
 
     const video = await Video.create({
@@ -33,6 +33,7 @@ export const createVideo = async (req, res) => {
       links,
       isCourseSpecific,
       courseId: isCourseSpecific ? courseId : undefined,
+      educatorID: educatorID || undefined,
     });
 
     res.status(201).json({
@@ -76,7 +77,12 @@ export const getVideos = async (req, res) => {
     }
 
     const [videos, total] = await Promise.all([
-      Video.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parsedLimit),
+      Video.find(filter)
+        .populate("courseId", "title")
+        .populate("educatorID", "fullName username")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parsedLimit),
       Video.countDocuments(filter),
     ]);
 
