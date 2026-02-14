@@ -13,6 +13,7 @@ import {
   updateVideoValidation,
   validateObjectId,
 } from "../util/validation.js";
+import { authenticateEducator } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -42,19 +43,21 @@ const upload = multer({
   },
 });
 
-router.post("/", createVideoValidation, createVideo);
+router.post("/", authenticateEducator, createVideoValidation, createVideo);
 router.post(
   "/upload-to-vimeo",
+  authenticateEducator,
   upload.single("video"),
   uploadVideoToVimeoController
 );
-router.get("/", getVideos);
-router.get("/:id", validateObjectId(), getVideoById);
+router.get("/", authenticateEducator, getVideos);
+router.get("/:id", authenticateEducator, validateObjectId(), getVideoById);
 router.put(
   "/:id",
+  authenticateEducator,
   [...validateObjectId(), ...updateVideoValidation],
   updateVideo
 );
-router.delete("/:id", validateObjectId(), deleteVideo);
+router.delete("/:id", authenticateEducator, validateObjectId(), deleteVideo);
 
 export default router;
