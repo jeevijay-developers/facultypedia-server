@@ -32,7 +32,7 @@ export const createVideo = async (req, res) => {
       return;
     }
 
-    const { title, links } = req.body;
+    const { title, links, educatorID } = req.body;
     const courseId = typeof req.body.courseId === "string" ? req.body.courseId.trim() : undefined;
     const courseIds = normalizeCourseIds(req.body.courseIds);
     const isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific) || courseIds.length > 0;
@@ -42,6 +42,8 @@ export const createVideo = async (req, res) => {
       links,
       isCourseSpecific,
       courseId: isCourseSpecific && courseIds.length === 0 ? courseId : undefined,
+      educatorID: educatorID || undefined,
+      uploadedBy: req.educator._id,
       courseIds: isCourseSpecific ? courseIds : [],
     });
 
@@ -74,7 +76,9 @@ export const getVideos = async (req, res) => {
     const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
     const skip = (parsedPage - 1) * parsedLimit;
 
-    const filter = {};
+    const filter = {
+      uploadedBy: req.educator._id,
+    };
     if (typeof isCourseSpecific !== "undefined") {
       filter.isCourseSpecific = normalizeBoolean(isCourseSpecific);
     }
@@ -86,7 +90,12 @@ export const getVideos = async (req, res) => {
     }
 
     const [videos, total] = await Promise.all([
-      Video.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parsedLimit),
+      Video.find(filter)
+        .populate("courseId", "title")
+        .populate("educatorID", "fullName username")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parsedLimit),
       Video.countDocuments(filter),
     ]);
 
@@ -115,7 +124,10 @@ export const getVideos = async (req, res) => {
 
 export const getVideoById = async (req, res) => {
   try {
-    const video = await Video.findById(req.params.id);
+    const video = await Video.findOne({
+      _id: req.params.id,
+      uploadedBy: req.educator._id,
+    });
 
     if (!video) {
       return res.status(404).json({
@@ -145,7 +157,10 @@ export const updateVideo = async (req, res) => {
       return;
     }
 
-    const video = await Video.findById(req.params.id);
+    const video = await Video.findOne({
+      _id: req.params.id,
+      uploadedBy: req.educator._id,
+    });
 
     if (!video) {
       return res.status(404).json({
@@ -207,7 +222,10 @@ export const updateVideo = async (req, res) => {
 
 export const deleteVideo = async (req, res) => {
   try {
-    const video = await Video.findByIdAndDelete(req.params.id);
+    const video = await Video.findOneAndDelete({
+      _id: req.params.id,
+      uploadedBy: req.educator._id,
+    });
 
     if (!video) {
       return res.status(404).json({
@@ -268,6 +286,7 @@ export const uploadVideoToVimeoController = async (req, res) => {
       links: [vimeoResult.embedUrl],
       isCourseSpecific,
       courseId: isCourseSpecific ? courseId : undefined,
+      uploadedBy: req.educator._id,
     });
 
     res.status(201).json({

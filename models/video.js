@@ -26,6 +26,17 @@ const videoSchema = new Schema(
         message: "At least one video link is required",
       },
     },
+    educatorID: {
+      type: Schema.Types.ObjectId,
+      ref: "Educator",
+      index: true,
+    },
+    uploadedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "Educator",
+      required: true,
+      index: true,
+    },
     isCourseSpecific: {
       type: Boolean,
       default: false,

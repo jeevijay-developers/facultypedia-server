@@ -131,25 +131,8 @@ const courseSchema = new mongoose.Schema({
   },
   videos: [
     {
-      title: {
-        type: String,
-        required: true,
-        trim: true,
-        maxlength: 200,
-      },
-      link: {
-        type: String,
-        required: true,
-        trim: true,
-      },
-      duration: {
-        type: String,
-        trim: true,
-      },
-      sequenceNumber: {
-        type: Number,
-        required: true,
-      },
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Video",
     },
   ],
   introVideo: {
