@@ -2772,6 +2772,13 @@ export const validateVideoLinks = (isOptional = false) => [
 const parseVideoCourseSpecificFlag = (value) =>
   value === true || value === "true" || value === 1 || value === "1";
 
+const normalizeCourseIdsInput = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((id) => (typeof id === "string" ? id.trim() : ""))
+    .filter((id) => /^[a-f\d]{24}$/i.test(id));
+};
+
 export const validateVideoIsCourseSpecific = [
   body("isCourseSpecific")
     .optional()
@@ -2787,9 +2794,10 @@ export const validateVideoCourseId = [
       const requiresCourse = parseVideoCourseSpecificFlag(
         req.body?.isCourseSpecific
       );
+      const normalizedCourseIds = normalizeCourseIdsInput(req.body?.courseIds);
 
-      if (requiresCourse && !value) {
-        throw new Error("courseId is required when isCourseSpecific is true");
+      if (requiresCourse && !value && normalizedCourseIds.length === 0) {
+        throw new Error("courseId or courseIds is required when isCourseSpecific is true");
       }
 
       if (!value) {
@@ -2810,11 +2818,42 @@ export const validateVideoCourseId = [
     }),
 ];
 
+export const validateVideoCourseIds = [
+  body("courseIds")
+    .optional({ nullable: true })
+    .custom((value, { req }) => {
+      if (typeof value === "undefined" || value === null) return true;
+      if (!Array.isArray(value)) {
+        throw new Error("courseIds must be an array of course IDs");
+      }
+
+      const normalized = normalizeCourseIdsInput(value);
+      if (normalized.length !== value.length) {
+        throw new Error("courseIds must only contain valid course IDs");
+      }
+
+      const requiresCourse = parseVideoCourseSpecificFlag(
+        req.body?.isCourseSpecific
+      );
+      if (requiresCourse && normalized.length === 0 && !req.body?.courseId) {
+        throw new Error("Provide courseIds or courseId when isCourseSpecific is true");
+      }
+
+      return true;
+    })
+    .customSanitizer((value, { req }) => {
+      const normalized = normalizeCourseIdsInput(value);
+      req.body.courseIds = normalized;
+      return normalized.length > 0 ? normalized : undefined;
+    }),
+];
+
 export const createVideoValidation = [
   validateVideoTitle(false),
   ...validateVideoLinks(false),
   ...validateVideoIsCourseSpecific,
   ...validateVideoCourseId,
+  ...validateVideoCourseIds,
 ];
 
 export const updateVideoValidation = [
@@ -2822,6 +2861,7 @@ export const updateVideoValidation = [
   ...validateVideoLinks(true),
   ...validateVideoIsCourseSpecific,
   ...validateVideoCourseId,
+  ...validateVideoCourseIds,
 ];
 
 // Validate study material details
@@ -3342,9 +3382,30 @@ const studyMaterialRequiresCourse = (req) => {
   return flag === true || flag === "true" || flag === 1 || flag === "1";
 };
 
+export const validateStudyMaterialCourseIds = [
+  body("courseIds")
+    .optional()
+    .customSanitizer(sanitizeArrayPayload)
+    .isArray()
+    .withMessage("courseIds must be an array")
+    .custom((ids, { req }) => {
+      if (studyMaterialRequiresCourse(req) && (!ids || ids.length === 0)) {
+        throw new Error(
+          "At least one courseId is required when the study material is course-specific"
+        );
+      }
+      return true;
+    }),
+  body("courseIds.*")
+    .optional({ nullable: true })
+    .isMongoId()
+    .withMessage("Each courseId in courseIds must be a valid Mongo ID"),
+];
+
 export const validateStudyMaterialCourseId = [
   body("courseId").custom((value, { req }) => {
-    if (studyMaterialRequiresCourse(req) && !value) {
+    const hasCourseIds = Array.isArray(req.body.courseIds) && req.body.courseIds.length > 0;
+    if (studyMaterialRequiresCourse(req) && !value && !hasCourseIds) {
       throw new Error(
         "courseId is required when the study material is course-specific"
       );
@@ -3384,6 +3445,7 @@ export const createStudyMaterialValidation = [
   validateStudyMaterialDocs(false),
   ...validateStudyMaterialTags,
   ...validateStudyMaterialIsCourseSpecific,
+  ...validateStudyMaterialCourseIds,
   ...validateStudyMaterialCourseId,
 ];
 
@@ -3393,6 +3455,7 @@ export const updateStudyMaterialValidation = [
   validateStudyMaterialDocs(true),
   ...validateStudyMaterialTags,
   ...validateStudyMaterialIsCourseSpecific,
+  ...validateStudyMaterialCourseIds,
   ...validateStudyMaterialCourseId,
   ...validateStudyMaterialRemoveDocIds,
   ...validateStudyMaterialEducatorId.map((validator) => validator.optional()),

@@ -6,6 +6,13 @@ import fs from "fs";
 const normalizeBoolean = (value) =>
   value === true || value === "true" || value === 1 || value === "1";
 
+const normalizeCourseIds = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((id) => (typeof id === "string" ? id.trim() : ""))
+    .filter((id) => /^[a-f\d]{24}$/i.test(id));
+};
+
 const handleValidation = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -25,14 +32,17 @@ export const createVideo = async (req, res) => {
       return;
     }
 
-    const { title, links, courseId } = req.body;
-    const isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific);
+    const { title, links } = req.body;
+    const courseId = typeof req.body.courseId === "string" ? req.body.courseId.trim() : undefined;
+    const courseIds = normalizeCourseIds(req.body.courseIds);
+    const isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific) || courseIds.length > 0;
 
     const video = await Video.create({
       title: title.trim(),
       links,
       isCourseSpecific,
-      courseId: isCourseSpecific ? courseId : undefined,
+      courseId: isCourseSpecific && courseIds.length === 0 ? courseId : undefined,
+      courseIds: isCourseSpecific ? courseIds : [],
     });
 
     res.status(201).json({
@@ -69,7 +79,7 @@ export const getVideos = async (req, res) => {
       filter.isCourseSpecific = normalizeBoolean(isCourseSpecific);
     }
     if (courseId) {
-      filter.courseId = courseId;
+      filter.$or = [{ courseId }, { courseIds: courseId }];
     }
     if (search) {
       filter.title = { $regex: search.trim(), $options: "i" };
@@ -144,7 +154,9 @@ export const updateVideo = async (req, res) => {
       });
     }
 
-    const { title, links, courseId } = req.body;
+    const { title, links } = req.body;
+    const courseId = typeof req.body.courseId === "string" ? req.body.courseId.trim() : undefined;
+    const courseIds = normalizeCourseIds(req.body.courseIds);
 
     if (typeof title === "string" && title.trim()) {
       video.title = title.trim();
@@ -158,12 +170,22 @@ export const updateVideo = async (req, res) => {
       video.isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific);
     }
 
+    if (courseIds.length > 0) {
+      video.isCourseSpecific = true;
+      video.courseIds = courseIds;
+      video.courseId = undefined;
+    } else if (typeof req.body.courseIds !== "undefined") {
+      // Explicitly clear courseIds when provided empty
+      video.courseIds = [];
+    }
+
     if (video.isCourseSpecific) {
-      if (typeof courseId !== "undefined") {
+      if (courseIds.length === 0 && typeof courseId !== "undefined") {
         video.courseId = courseId;
       }
     } else {
       video.courseId = undefined;
+      video.courseIds = [];
     }
 
     await video.save();

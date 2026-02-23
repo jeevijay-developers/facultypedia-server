@@ -35,10 +35,19 @@ const videoSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Course",
       required() {
-        return this.isCourseSpecific;
+        const hasArrayIds = Array.isArray(this.courseIds) && this.courseIds.length > 0;
+        return this.isCourseSpecific && !hasArrayIds;
       },
       index: true,
     },
+    courseIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Course",
+        index: true,
+      },
+    ],
+    default: [],
   },
   {
     timestamps: true,
