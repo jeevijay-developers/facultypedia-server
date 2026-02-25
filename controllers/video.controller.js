@@ -122,6 +122,61 @@ export const getVideos = async (req, res) => {
   }
 };
 
+export const getVideosByCourse = async (req, res) => {
+  try {
+    if (handleValidation(req, res)) {
+      return;
+    }
+
+    const { page = 1, limit = 50, search } = req.query;
+    const { courseId } = req.params;
+
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const filter = {
+      isCourseSpecific: true,
+      $or: [{ courseId }, { courseIds: courseId }],
+    };
+
+    if (search) {
+      filter.title = { $regex: search.trim(), $options: "i" };
+    }
+
+    const [videos, total] = await Promise.all([
+      Video.find(filter)
+        .populate("courseId", "title")
+        .populate("educatorID", "fullName username")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parsedLimit),
+      Video.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Course videos fetched successfully",
+      data: {
+        videos,
+        pagination: {
+          currentPage: parsedPage,
+          totalPages: Math.ceil(total / parsedLimit) || 1,
+          totalItems: total,
+          pageSize: parsedLimit,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching course videos:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch course videos",
+      error: error.message,
+    });
+  }
+};
+
 export const getVideoById = async (req, res) => {
   try {
     const video = await Video.findOne({
