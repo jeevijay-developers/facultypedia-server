@@ -39,6 +39,11 @@ export const createCourse = async (req, res) => {
       language,
       certificateAvailable,
       maxStudents,
+      classesPerWeek,
+      classDuration,
+      testFrequency,
+      classTiming,
+      videoTitle,
     } = req.body;
 
     // Check if course with same title exists for this educator
@@ -95,6 +100,11 @@ export const createCourse = async (req, res) => {
       language: language || "English",
       certificateAvailable: certificateAvailable || false,
       maxStudents: maxStudents || 100,
+      classesPerWeek: classesPerWeek || 0,
+      classDuration: classDuration || 0,
+      testFrequency: testFrequency || 0,
+      ...(classTiming && { classTiming }),
+      ...(videoTitle && { videoTitle }),
     });
 
     // Generate slug
