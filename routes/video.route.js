@@ -3,6 +3,7 @@ import multer from "multer";
 import {
   createVideo,
   deleteVideo,
+  getCourseVideosPublic,
   getVideoById,
   getVideos,
   updateVideo,
@@ -50,6 +51,7 @@ router.post(
   upload.single("video"),
   uploadVideoToVimeoController
 );
+router.get("/course/:courseId", validateObjectId("courseId"), getCourseVideosPublic);
 router.get("/", authenticateEducator, getVideos);
 router.get("/:id", authenticateEducator, validateObjectId(), getVideoById);
 router.put(

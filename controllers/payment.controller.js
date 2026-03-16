@@ -16,6 +16,7 @@ import {
 import Payout from "../models/payout.js";
 import { sendInvoiceEmail } from "../util/email.js";
 import { generatePayoutInvoice } from "../services/invoice.service.js";
+import { upsertMonthlyPayoutForEducator } from "../services/payout.service.js";
 
 const respondValidationErrors = (req, res) => {
   const errors = validationResult(req);
@@ -199,6 +200,28 @@ const handleSuccessfulPayment = async (intent, paymentEntity, eventName) => {
     intent.studentId,
     intent.productSnapshot || {}
   );
+
+  // Keep monthly payout records in sync so admin payout tab reflects fresh sales.
+  try {
+    const educatorId =
+      intent.productSnapshot?.educator?._id ||
+      intent.productSnapshot?.educator ||
+      null;
+
+    if (educatorId) {
+      const createdAt = intent.createdAt ? new Date(intent.createdAt) : new Date();
+      const month = createdAt.getMonth() + 1;
+      const year = createdAt.getFullYear();
+
+      await upsertMonthlyPayoutForEducator({
+        educatorId,
+        month,
+        year,
+      });
+    }
+  } catch (payoutSyncError) {
+    console.error("Failed to sync payout after successful payment:", payoutSyncError);
+  }
 
   return intent;
 };
@@ -406,7 +429,7 @@ export const handleRazorpayWebhook = async (req, res) => {
         );
       } else if (eventName === "payout.processed") {
         // Payout completed successfully
-        payout.status = "paid";
+        payout.status = "processed";
         if (payoutEntity?.id) {
           payout.razorpayPayoutId = payoutEntity.id;
         }
@@ -414,7 +437,7 @@ export const handleRazorpayWebhook = async (req, res) => {
           payout.utr = payoutEntity.utr;
         }
         console.log(
-          `[Webhook] Payout processed: ${referenceId} (${previousStatus} → paid)`,
+          `[Webhook] Payout processed: ${referenceId} (${previousStatus} → processed)`,
           {
             utr: payoutEntity?.utr || "N/A",
             razorpayPayoutId: payoutEntity?.id,
@@ -463,8 +486,11 @@ export const handleRazorpayWebhook = async (req, res) => {
         );
       }
 
-      // Send invoice to educator when payout is paid
-      if (payout.status === "paid" && payout.educatorId?.email) {
+      // Send invoice to educator when payout is successfully completed
+      if (
+        (payout.status === "processed" || payout.status === "paid") &&
+        payout.educatorId?.email
+      ) {
         try {
           console.log(
             `[Webhook] Sending invoice email to educator: ${payout.educatorId.email}`

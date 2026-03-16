@@ -2782,7 +2782,14 @@ export const validateVideoIsCourseSpecific = [
 
 export const validateVideoCourseId = [
   body("courseId")
-    .optional({ nullable: true })
+    .customSanitizer((value, { req }) => {
+      if (value) return value;
+      const courseIds = req.body?.courseIds;
+      if (Array.isArray(courseIds) && courseIds.length > 0) {
+        return courseIds[0];
+      }
+      return value;
+    })
     .custom((value, { req }) => {
       const requiresCourse = parseVideoCourseSpecificFlag(
         req.body?.isCourseSpecific

@@ -132,7 +132,7 @@ The system maps webhook events to payout statuses as follows:
 | --------------------- | ------------- | --------------------------------------- |
 | `payout.queued`       | `processing`  | Payout is queued for processing         |
 | `payout.initiated`    | `processing`  | Payout has been initiated               |
-| `payout.processed`    | `paid`        | Payout completed successfully           |
+| `payout.processed`    | `processed`   | Payout completed successfully           |
 | `payout.failed`       | `failed`      | Payout failed                           |
 | `payout.reversed`     | `reversed`    | Payout was reversed                     |
 | `transaction.created` | (no change)   | Logged for audit, doesn't change status |

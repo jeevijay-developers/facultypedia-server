@@ -25,14 +25,16 @@ export const createVideo = async (req, res) => {
       return;
     }
 
-    const { title, links, courseId, educatorID } = req.body;
+    const { title, links, courseId, courseIds, educatorID } = req.body;
     const isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific);
+    const resolvedCourseId =
+      courseId || (Array.isArray(courseIds) && courseIds.length > 0 ? courseIds[0] : undefined);
 
     const video = await Video.create({
       title: title.trim(),
       links,
       isCourseSpecific,
-      courseId: isCourseSpecific ? courseId : undefined,
+      courseId: isCourseSpecific ? resolvedCourseId : undefined,
       educatorID: educatorID || undefined,
       uploadedBy: req.educator._id,
     });
@@ -112,6 +114,57 @@ export const getVideos = async (req, res) => {
   }
 };
 
+export const getCourseVideosPublic = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { page = 1, limit = 200, search } = req.query;
+
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(500, Math.max(1, parseInt(limit, 10) || 200));
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const filter = {
+      isCourseSpecific: true,
+      courseId,
+    };
+
+    if (search) {
+      filter.title = { $regex: search.trim(), $options: "i" };
+    }
+
+    const [videos, total] = await Promise.all([
+      Video.find(filter)
+        .populate("courseId", "title")
+        .populate("educatorID", "fullName username")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parsedLimit),
+      Video.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Course videos fetched successfully",
+      data: {
+        videos,
+        pagination: {
+          currentPage: parsedPage,
+          totalPages: Math.ceil(total / parsedLimit) || 1,
+          totalItems: total,
+          pageSize: parsedLimit,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching public course videos:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch course videos",
+      error: error.message,
+    });
+  }
+};
+
 export const getVideoById = async (req, res) => {
   try {
     const video = await Video.findOne({
@@ -159,7 +212,9 @@ export const updateVideo = async (req, res) => {
       });
     }
 
-    const { title, links, courseId } = req.body;
+    const { title, links, courseId, courseIds } = req.body;
+    const resolvedCourseId =
+      courseId || (Array.isArray(courseIds) && courseIds.length > 0 ? courseIds[0] : undefined);
 
     if (typeof title === "string" && title.trim()) {
       video.title = title.trim();
@@ -174,8 +229,8 @@ export const updateVideo = async (req, res) => {
     }
 
     if (video.isCourseSpecific) {
-      if (typeof courseId !== "undefined") {
-        video.courseId = courseId;
+      if (typeof resolvedCourseId !== "undefined") {
+        video.courseId = resolvedCourseId;
       }
     } else {
       video.courseId = undefined;
@@ -235,8 +290,10 @@ export const uploadVideoToVimeoController = async (req, res) => {
       });
     }
 
-    const { title, courseId } = req.body;
+    const { title, courseId, courseIds } = req.body;
     const isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific);
+    const resolvedCourseId =
+      courseId || (Array.isArray(courseIds) && courseIds.length > 0 ? courseIds[0] : undefined);
 
     if (!title || !title.trim()) {
       return res.status(400).json({
@@ -263,7 +320,7 @@ export const uploadVideoToVimeoController = async (req, res) => {
       title: title.trim(),
       links: [vimeoResult.embedUrl],
       isCourseSpecific,
-      courseId: isCourseSpecific ? courseId : undefined,
+      courseId: isCourseSpecific ? resolvedCourseId : undefined,
       uploadedBy: req.educator._id,
     });
 
