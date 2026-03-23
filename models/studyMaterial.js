@@ -87,6 +87,13 @@ const studyMaterialSchema = new Schema(
       default: false,
       index: true,
     },
+    courseIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Course",
+        index: true,
+      },
+    ],
     courseId: {
       type: Schema.Types.ObjectId,
       ref: "Course",

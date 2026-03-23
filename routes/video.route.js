@@ -5,6 +5,7 @@ import {
   deleteVideo,
   getCourseVideosPublic,
   getVideoById,
+  getVideosByCourse,
   getVideos,
   updateVideo,
   uploadVideoToVimeoController,
@@ -12,6 +13,7 @@ import {
 import {
   createVideoValidation,
   updateVideoValidation,
+  validateCourseIdParam,
   validateObjectId,
 } from "../util/validation.js";
 import { authenticateEducator } from "../middleware/auth.middleware.js";
@@ -53,6 +55,7 @@ router.post(
 );
 router.get("/course/:courseId", validateObjectId("courseId"), getCourseVideosPublic);
 router.get("/", authenticateEducator, getVideos);
+router.get("/course/:courseId", validateCourseIdParam, getVideosByCourse);
 router.get("/:id", authenticateEducator, validateObjectId(), getVideoById);
 router.put(
   "/:id",

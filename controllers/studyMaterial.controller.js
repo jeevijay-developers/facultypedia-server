@@ -1,7 +1,10 @@
 import { validationResult } from "express-validator";
 import StudyMaterial from "../models/studyMaterial.js";
 import Course from "../models/course.js";
-import { determineStudyMaterialFileType } from "../util/studyMaterial.js";
+import {
+  determineStudyMaterialFileType,
+  sanitizeArrayPayload,
+} from "../util/studyMaterial.js";
 import {
   deleteCloudinaryAsset,
   uploadStudyMaterialPdfBuffer,
@@ -127,13 +130,21 @@ const sanitizeTags = (tags) => {
     .slice(0, 25);
 };
 
-const ensureCourseExists = async (courseId) => {
-  if (!courseId) {
+const normalizeCourseIds = (courseIds, fallbackCourseId) => {
+  const normalized = sanitizeArrayPayload(courseIds);
+  if (fallbackCourseId) {
+    normalized.push(fallbackCourseId);
+  }
+  return [...new Set(normalized.filter(Boolean))];
+};
+
+const ensureCourseExists = async (courseIds = []) => {
+  const ids = Array.isArray(courseIds) ? courseIds : [courseIds].filter(Boolean);
+  if (!ids.length) {
     return true;
   }
-
-  const course = await Course.exists({ _id: courseId });
-  return Boolean(course);
+  const count = await Course.countDocuments({ _id: { $in: ids } });
+  return count === ids.length;
 };
 
 const listStudyMaterials = async (query, baseFilter = {}) => {
@@ -157,7 +168,9 @@ const listStudyMaterials = async (query, baseFilter = {}) => {
     filter.educatorID = educatorID;
   }
   if (courseId) {
-    filter.courseId = courseId;
+    // Match legacy courseId or new courseIds array
+    delete filter.courseId;
+    filter.$or = [{ courseId }, { courseIds: courseId }];
   }
   if (typeof isCourseSpecific !== "undefined") {
     filter.isCourseSpecific = normalizeBoolean(isCourseSpecific);
@@ -174,6 +187,7 @@ const listStudyMaterials = async (query, baseFilter = {}) => {
     StudyMaterial.find(filter)
       .populate("educatorID", "fullName username email")
       .populate("courseId", "title slug")
+      .populate("courseIds", "title slug")
       .sort({ [sortField]: sortDirection })
       .skip(skip)
       .limit(parsedLimit)
@@ -206,12 +220,15 @@ export const createStudyMaterial = async (req, res) => {
       description,
       isCourseSpecific,
       courseId,
+      courseIds,
       tags,
     } = req.body;
 
     const courseSpecificFlag = normalizeBoolean(isCourseSpecific);
 
-    if (courseSpecificFlag && !(await ensureCourseExists(courseId))) {
+    const normalizedCourseIds = normalizeCourseIds(courseIds, courseId);
+
+    if (courseSpecificFlag && !(await ensureCourseExists(normalizedCourseIds))) {
       return res.status(404).json({
         success: false,
         message: "Course not found for the provided courseId",
@@ -235,7 +252,8 @@ export const createStudyMaterial = async (req, res) => {
       description: description?.trim(),
       docs: uploadedDocs,
       isCourseSpecific: courseSpecificFlag,
-      courseId: courseSpecificFlag ? courseId : undefined,
+      courseId: courseSpecificFlag ? normalizedCourseIds[0] : undefined,
+      courseIds: courseSpecificFlag ? normalizedCourseIds : [],
       tags: sanitizeTags(tags),
     });
 
@@ -295,9 +313,10 @@ export const getStudyMaterialsByEducator = async (req, res) => {
 
 export const getStudyMaterialByCourse = async (req, res) => {
   try {
-    const result = await listStudyMaterials(req.query, {
-      courseId: req.params.courseId,
-    });
+    const result = await listStudyMaterials(
+      { ...req.query, courseId: req.params.courseId },
+      {}
+    );
     return res.status(200).json({
       success: true,
       message: "Course study materials retrieved successfully",
@@ -317,7 +336,8 @@ export const getStudyMaterialById = async (req, res) => {
   try {
     const material = await StudyMaterial.findById(req.params.id)
       .populate("educatorID", "fullName username email")
-      .populate("courseId", "title slug");
+      .populate("courseId", "title slug")
+      .populate("courseIds", "title slug");
 
     if (!material) {
       return res.status(404).json({
@@ -354,6 +374,7 @@ export const updateStudyMaterial = async (req, res) => {
       description,
       isCourseSpecific,
       courseId,
+      courseIds,
       tags,
       removeDocIds = [],
     } = req.body;
@@ -362,7 +383,8 @@ export const updateStudyMaterial = async (req, res) => {
 
     const material = await StudyMaterial.findById(req.params.id)
       .populate("educatorID", "fullName username email")
-      .populate("courseId", "title slug");
+      .populate("courseId", "title slug")
+      .populate("courseIds", "title slug");
 
     if (!material) {
       return res.status(404).json({
@@ -388,24 +410,29 @@ export const updateStudyMaterial = async (req, res) => {
       material.isCourseSpecific = courseSpecificFlag;
 
       if (courseSpecificFlag) {
-        if (!(await ensureCourseExists(courseId))) {
+        const normalizedCourseIds = normalizeCourseIds(courseIds, courseId);
+        if (!(await ensureCourseExists(normalizedCourseIds))) {
           return res.status(404).json({
             success: false,
             message: "Course not found for the provided courseId",
           });
         }
-        material.courseId = courseId;
+        material.courseIds = normalizedCourseIds;
+        material.courseId = normalizedCourseIds[0];
       } else {
+        material.courseIds = [];
         material.courseId = undefined;
       }
-    } else if (courseId) {
-      if (!(await ensureCourseExists(courseId))) {
+    } else if (courseIds || courseId) {
+      const normalizedCourseIds = normalizeCourseIds(courseIds, courseId);
+      if (!(await ensureCourseExists(normalizedCourseIds))) {
         return res.status(404).json({
           success: false,
           message: "Course not found for the provided courseId",
         });
       }
-      material.courseId = courseId;
+      material.courseIds = normalizedCourseIds;
+      material.courseId = normalizedCourseIds[0];
     }
 
     if (tags) {

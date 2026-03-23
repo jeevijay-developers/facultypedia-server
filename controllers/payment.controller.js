@@ -378,10 +378,11 @@ export const handleRazorpayWebhook = async (req, res) => {
         });
       }
 
-      // Find payout by reference_id
-      const payout = await Payout.findOne({
-        payoutCheckId: referenceId,
-      }).populate("educatorId", "fullName email");
+      // Find payout by reference_id — new payouts use _id as referenceId (24 chars), old ones used payoutCheckId
+      let payout = await Payout.findById(referenceId).populate("educatorId", "fullName email").catch(() => null);
+      if (!payout) {
+        payout = await Payout.findOne({ payoutCheckId: referenceId }).populate("educatorId", "fullName email");
+      }
 
       if (!payout) {
         console.warn(
@@ -541,11 +542,12 @@ export const handleRazorpayWebhook = async (req, res) => {
         status: transactionEntity?.status || "unknown",
       });
 
-      // Check if transaction is related to a payout
+      // Check if transaction is related to a payout — new payouts use _id as referenceId
       if (referenceId) {
-        const payout = await Payout.findOne({
-          payoutCheckId: referenceId,
-        });
+        let payout = await Payout.findById(referenceId).catch(() => null);
+        if (!payout) {
+          payout = await Payout.findOne({ payoutCheckId: referenceId });
+        }
 
         if (payout) {
           console.log(

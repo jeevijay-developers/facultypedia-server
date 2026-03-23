@@ -1,6 +1,11 @@
 import fs from "fs/promises";
 import { validationResult } from "express-validator";
 import Educator from "../models/educator.js";
+import Student from "../models/student.js";
+import Course from "../models/course.js";
+import Webinar from "../models/webinar.js";
+import LiveClass from "../models/liveClass.js";
+import TestSeries from "../models/testSeries.js";
 import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
 import {
   createContact,
@@ -726,6 +731,69 @@ export const updateEducatorRating = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Educator not found",
+      });
+    }
+
+    const student = await Student.findById(studentId).select(
+      "courses webinars testSeries"
+    );
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    const courseIds = (student.courses || [])
+      .map((entry) => entry?.courseId)
+      .filter(Boolean);
+    const webinarIds = (student.webinars || [])
+      .map((entry) => entry?.webinarId)
+      .filter(Boolean);
+    const testSeriesIds = (student.testSeries || [])
+      .map((entry) => entry?.testSeriesId)
+      .filter(Boolean);
+
+    const [hasCourse, hasWebinar, hasTestSeries, hasLiveClass] = await Promise.all([
+      courseIds.length
+        ? Course.exists({
+            _id: { $in: courseIds },
+            educatorID: id,
+            isActive: true,
+            status: { $ne: "deleted" },
+          })
+        : null,
+      webinarIds.length
+        ? Webinar.exists({
+            _id: { $in: webinarIds },
+            educatorID: id,
+            isActive: true,
+          })
+        : null,
+      testSeriesIds.length
+        ? TestSeries.exists({
+            _id: { $in: testSeriesIds },
+            educatorId: id,
+            isActive: true,
+          })
+        : null,
+      LiveClass.exists({
+        educatorID: id,
+        "enrolledStudents.studentId": studentId,
+        isActive: true,
+      }),
+    ]);
+
+    const hasEligibleEngagement = Boolean(
+      hasCourse || hasWebinar || hasTestSeries || hasLiveClass
+    );
+
+    if (!hasEligibleEngagement) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "You can rate this educator after enrolling in their course, webinar, live class, or test series.",
       });
     }
 

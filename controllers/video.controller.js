@@ -6,6 +6,13 @@ import fs from "fs";
 const normalizeBoolean = (value) =>
   value === true || value === "true" || value === 1 || value === "1";
 
+const normalizeCourseIds = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((id) => (typeof id === "string" ? id.trim() : ""))
+    .filter((id) => /^[a-f\d]{24}$/i.test(id));
+};
+
 const handleValidation = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -37,6 +44,7 @@ export const createVideo = async (req, res) => {
       courseId: isCourseSpecific ? resolvedCourseId : undefined,
       educatorID: educatorID || undefined,
       uploadedBy: req.educator._id,
+      courseIds: isCourseSpecific ? courseIds : [],
     });
 
     res.status(201).json({
@@ -75,7 +83,7 @@ export const getVideos = async (req, res) => {
       filter.isCourseSpecific = normalizeBoolean(isCourseSpecific);
     }
     if (courseId) {
-      filter.courseId = courseId;
+      filter.$or = [{ courseId }, { courseIds: courseId }];
     }
     if (search) {
       filter.title = { $regex: search.trim(), $options: "i" };
@@ -165,6 +173,9 @@ export const getCourseVideosPublic = async (req, res) => {
   }
 };
 
+// Backward-compatible alias used by existing route imports.
+export const getVideosByCourse = getCourseVideosPublic;
+
 export const getVideoById = async (req, res) => {
   try {
     const video = await Video.findOne({
@@ -228,12 +239,22 @@ export const updateVideo = async (req, res) => {
       video.isCourseSpecific = normalizeBoolean(req.body.isCourseSpecific);
     }
 
+    if (courseIds.length > 0) {
+      video.isCourseSpecific = true;
+      video.courseIds = courseIds;
+      video.courseId = undefined;
+    } else if (typeof req.body.courseIds !== "undefined") {
+      // Explicitly clear courseIds when provided empty
+      video.courseIds = [];
+    }
+
     if (video.isCourseSpecific) {
       if (typeof resolvedCourseId !== "undefined") {
         video.courseId = resolvedCourseId;
       }
     } else {
       video.courseId = undefined;
+      video.courseIds = [];
     }
 
     await video.save();

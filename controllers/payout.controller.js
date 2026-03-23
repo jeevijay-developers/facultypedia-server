@@ -109,11 +109,12 @@ export const processPayout = async (req, res) => {
     const narration = formatPayoutNarration(payout.month, payout.year);
 
     // Call Razorpay Service (payout.amount is already in paise)
+    // Use payout._id (24 chars) as referenceId — payoutCheckId can exceed Razorpay's 40-char limit
     const razorpayPayout = await createRazorpayPayout({
       fundAccountId: educator.razorpayFundAccountId,
       amount: Math.round(payout.amount),
       currency: payout.currency,
-      referenceId: payout.payoutCheckId,
+      referenceId: payout._id.toString(),
       narration: narration,
       idempotencyKey,
     });
@@ -397,11 +398,12 @@ export const processBulkPayouts = async (req, res) => {
         const narration = formatPayoutNarration(payout.month, payout.year);
 
         // Call Razorpay Service
+        // Use payout._id (24 chars) as referenceId — payoutCheckId can exceed Razorpay's 40-char limit
         const razorpayPayout = await createRazorpayPayout({
           fundAccountId: payout.educatorId.razorpayFundAccountId,
           amount: Math.round(payout.amount),
           currency: payout.currency || "INR",
-          referenceId: payout.payoutCheckId,
+          referenceId: payout._id.toString(),
           narration: narration,
           idempotencyKey,
         });
