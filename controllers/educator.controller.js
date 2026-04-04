@@ -592,7 +592,7 @@ export const addFollower = async (req, res) => {
     }
 
     educator.followers.push(studentId);
-    await educator.save();
+    await educator.save({ validateModifiedOnly: true });
 
     res.status(200).json({
       success: true,
@@ -636,7 +636,7 @@ export const removeFollower = async (req, res) => {
     }
 
     educator.followers.splice(followerIndex, 1);
-    await educator.save();
+    await educator.save({ validateModifiedOnly: true });
 
     res.status(200).json({
       success: true,
@@ -829,7 +829,7 @@ export const updateEducatorRating = async (req, res) => {
     educator.rating.average = parseFloat(newAverage.toFixed(2));
     educator.rating.count = totalRatings;
 
-    await educator.save();
+    await educator.save({ validateModifiedOnly: true });
 
     res.status(200).json({
       success: true,
@@ -886,7 +886,7 @@ export const updateEducatorRevenue = async (req, res) => {
       );
     }
 
-    await educator.save();
+    await educator.save({ validateModifiedOnly: true });
 
     res.status(200).json({
       success: true,
@@ -1022,7 +1022,7 @@ export const uploadEducatorIntroVideo = async (req, res) => {
       educator.introVideo = result.embedUrl || result.link;
     }
 
-    await educator.save();
+    await educator.save({ validateModifiedOnly: true });
 
     res.status(200).json({
       success: true,
@@ -1072,7 +1072,7 @@ export const getEducatorIntroVideoStatus = async (req, res) => {
 
     if (statusInfo.embedUrl && statusInfo.embedUrl !== educator.introVideo) {
       educator.introVideo = statusInfo.embedUrl;
-      await educator.save();
+      await educator.save({ validateModifiedOnly: true });
     }
 
     res.status(200).json({
@@ -1121,7 +1121,7 @@ export const updateEducatorBankDetails = async (req, res) => {
 
     // Update in DB
     educator.bankDetails = { ...educator.bankDetails, ...bankDetails };
-    await educator.save();
+    await educator.save({ validateModifiedOnly: true });
 
     // Send email notification
     sendBankDetailsUpdatedEmail({
@@ -1149,7 +1149,7 @@ export const updateEducatorBankDetails = async (req, res) => {
         console.log(`Creating Razorpay contact for educator ${educator._id}`);
         const contact = await createContact(educator);
         educator.razorpayContactId = contact.id;
-        await educator.save();
+        await educator.save({ validateModifiedOnly: true });
         console.log(`Contact created: ${contact.id}`);
       } else {
         console.log(`Using existing contact: ${educator.razorpayContactId}`);
@@ -1172,7 +1172,7 @@ export const updateEducatorBankDetails = async (req, res) => {
       }
 
       educator.razorpayFundAccountId = fundAccount.id;
-      await educator.save();
+      await educator.save({ validateModifiedOnly: true });
 
       // Verify the fund account ID was saved
       const savedEducator = await Educator.findById(educator._id).select(

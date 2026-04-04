@@ -130,7 +130,7 @@ export const updateEducatorImageController = async (req, res) => {
       url: uploadResult.url,
     };
 
-    await educator.save();
+    await educator.save({ validateModifiedOnly: true });
 
     if (previousFileId && previousFileId !== uploadResult.fileId) {
       await deleteCloudinaryAsset(previousFileId);
