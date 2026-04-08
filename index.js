@@ -198,6 +198,6 @@ APP.get("/", (req, res) => {
 server.listen(PORT, () => {
   console.log(`Server started on http://localhost:${PORT}`);
   console.log(`WebSocket server ready at ws://localhost:${PORT}`);
-  console.log("CORS allowed origins:", Array.from(allowedOrigins));
+  // console.log("CORS allowed origins:", Array.from(allowedOrigins));
   connectDB();
 });
