@@ -3,6 +3,7 @@ import Student from "../models/student.js";
 import Course from "../models/course.js";
 import Webinar from "../models/webinar.js";
 import TestSeries from "../models/testSeries.js";
+import mongoose from "mongoose";
 
 const REVIEWABLE_TYPES = {
   course: "course",
@@ -238,6 +239,66 @@ export const getEducatorItemReviews = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch reviews",
+      error: error.message,
+    });
+  }
+};
+
+export const getItemReviews = async (req, res) => {
+  try {
+    const { itemType, itemId } = req.query;
+    const limit = clampLimit(req.query.limit, 50, 200);
+
+    if (!itemType || !itemId) {
+      return res.status(400).json({
+        success: false,
+        message: "itemType and itemId are required",
+      });
+    }
+
+    const normalizedType = itemType.toString();
+    if (!Object.values(REVIEWABLE_TYPES).includes(normalizedType)) {
+      return res.status(400).json({
+        success: false,
+        message: "itemType must be one of course, webinar, or testSeries",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid itemId format",
+      });
+    }
+
+    const reviews = await Review.find({
+      itemType: normalizedType,
+      itemId,
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const count = reviews.length;
+    const average = count
+      ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / count
+      : 0;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        reviews,
+        summary: {
+          count,
+          average,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching item reviews:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch item reviews",
       error: error.message,
     });
   }

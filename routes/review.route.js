@@ -1,10 +1,17 @@
 import express from "express";
-import { createItemReview, getEducatorItemReviews } from "../controllers/review.controller.js";
+import {
+	createItemReview,
+	getEducatorItemReviews,
+	getItemReviews,
+} from "../controllers/review.controller.js";
 
 const router = express.Router();
 
 // Submit or update a review for a course, webinar, or test series
 router.post("/", createItemReview);
+
+// Get all reviews for a specific item
+router.get("/item", getItemReviews);
 
 // Get all item reviews for a specific educator
 router.get("/educator/:id", getEducatorItemReviews);
