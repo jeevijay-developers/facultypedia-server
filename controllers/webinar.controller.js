@@ -1,7 +1,9 @@
+import fs from "fs/promises";
 import Webinar from "../models/webinar.js";
 import Educator from "../models/educator.js";
 import { validationResult } from "express-validator";
 import notificationService from "../services/notification.service.js";
+import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
 
 // Create a new webinar
 export const createWebinar = async (req, res) => {
@@ -31,6 +33,7 @@ export const createWebinar = async (req, res) => {
       educatorID,
       webinarLink,
       assetsLink,
+      introVideo,
     } = req.body;
 
     // Generate slug from title
@@ -64,6 +67,7 @@ export const createWebinar = async (req, res) => {
       educatorID,
       webinarLink,
       assetsLink,
+      introVideo,
       slug,
     });
 
@@ -641,6 +645,122 @@ export const bulkCreateWebinars = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Upload webinar intro/demo video to Vimeo
+export const uploadWebinarIntroVideo = async (req, res) => {
+  const cleanup = async () => {
+    if (req.file?.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (_) {
+        // ignore cleanup errors
+      }
+    }
+  };
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Video file is required",
+      });
+    }
+
+    const { id } = req.params;
+    const webinar = await Webinar.findById(id).select(
+      "title description introVideo introVideoVimeoUri"
+    );
+
+    if (!webinar) {
+      await cleanup();
+      return res.status(404).json({
+        success: false,
+        message: "Webinar not found",
+      });
+    }
+
+    const meta = {
+      name: `${webinar.title} | Intro`,
+      description: webinar.description || undefined,
+    };
+
+    const result = await uploadVideoAndResolve(req.file.path, meta);
+
+    webinar.introVideoVimeoUri = result.uri;
+    webinar.introVideo = result.embedUrl || result.link || webinar.introVideo;
+    await webinar.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Intro video uploaded to Vimeo",
+      data: {
+        introVideo: webinar.introVideo,
+        vimeoUri: webinar.introVideoVimeoUri,
+        status: result.status,
+        link: result.link,
+        embedUrl: result.embedUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading webinar intro video:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to upload intro video",
+      error: error.message,
+    });
+  } finally {
+    await cleanup();
+  }
+};
+
+// Get Vimeo transcode status for a webinar's intro video
+export const getWebinarIntroVideoStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const webinar = await Webinar.findById(id).select(
+      "title introVideo introVideoVimeoUri"
+    );
+
+    if (!webinar) {
+      return res.status(404).json({
+        success: false,
+        message: "Webinar not found",
+      });
+    }
+
+    if (!webinar.introVideoVimeoUri) {
+      return res.status(400).json({
+        success: false,
+        message: "No Vimeo intro video found for this webinar",
+      });
+    }
+
+    const statusInfo = await getVimeoStatus(webinar.introVideoVimeoUri);
+
+    if (statusInfo.embedUrl && statusInfo.embedUrl !== webinar.introVideo) {
+      webinar.introVideo = statusInfo.embedUrl;
+      await webinar.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        status: statusInfo.status,
+        introVideo: webinar.introVideo,
+        vimeoUri: webinar.introVideoVimeoUri,
+        link: statusInfo.link,
+        embedUrl: statusInfo.embedUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching webinar intro video status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch intro video status",
       error: error.message,
     });
   }

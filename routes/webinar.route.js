@@ -1,4 +1,7 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
 const router = express.Router();
 
 import {
@@ -13,6 +16,8 @@ import {
   getUpcomingWebinars,
   getWebinarsByEducator,
   bulkCreateWebinars,
+  uploadWebinarIntroVideo,
+  getWebinarIntroVideoStatus,
 } from "../controllers/webinar.controller.js";
 import { ensureDevEnvironment } from "../middleware/dev.middleware.js";
 
@@ -37,6 +42,31 @@ import {
   validateEducatorIdParam,
   bulkCreateWebinarsValidation,
 } from "../util/validation.js";
+
+const ensureUploadDir = () => {
+  const uploadDir = path.join(process.cwd(), "tmp", "uploads");
+  fs.mkdirSync(uploadDir, { recursive: true });
+  return uploadDir;
+};
+
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      try {
+        cb(null, ensureUploadDir());
+      } catch (error) {
+        cb(error, "");
+      }
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file?.originalname || "");
+      cb(null, `${Date.now()}-${file.fieldname}${ext}`);
+    },
+  }),
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB cap for intro videos
+  },
+});
 
 // Validation middleware for creating webinar
 const createWebinarValidation = [
@@ -107,6 +137,20 @@ router.put("/:id", updateWebinarValidation, updateWebinar);
 
 // DELETE /api/webinars/:id - Delete webinar (soft delete)
 router.delete("/:id", validateObjectId(), deleteWebinar);
+
+// Intro/Demo Video (Vimeo)
+router.post(
+  "/:id/intro-video/upload",
+  validateObjectId(),
+  videoUpload.single("video"),
+  uploadWebinarIntroVideo
+);
+
+router.get(
+  "/:id/intro-video/status",
+  validateObjectId(),
+  getWebinarIntroVideoStatus
+);
 
 // POST /api/webinars/:id/enroll - Enroll student in webinar
 router.post("/:id/enroll", enrollmentValidation, enrollStudent);

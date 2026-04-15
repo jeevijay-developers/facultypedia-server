@@ -107,6 +107,17 @@ const webinarSchema = new mongoose.Schema({
     required: false,
     trim: true,
   },
+  introVideo: {
+    type: String,
+    required: false,
+    trim: true,
+  },
+  introVideoVimeoUri: {
+    type: String,
+    required: false,
+    trim: true,
+    default: "",
+  },
   assetsLink: [
     {
       type: String,
