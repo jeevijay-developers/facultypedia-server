@@ -595,6 +595,15 @@ export const loginEducator = async (req, res) => {
     const educator = await Educator.findOne({ email: normalizedEmail }).select("+password");
 
     if (!educator) {
+      // Check if student exists with this email
+      const student = await Student.findOne({ email: normalizedEmail });
+      if (student) {
+        return res.status(403).json({
+          success: false,
+          message: "You are registered as a student. Please login from the student portal.",
+        });
+      }
+
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
@@ -729,6 +738,15 @@ export const loginStudent = async (req, res) => {
     );
 
     if (!student) {
+      // Check if educator exists with this email
+      const educator = await Educator.findOne({ email: normalizedEmail });
+      if (educator) {
+        return res.status(403).json({
+          success: false,
+          message: "You are registered as an educator. Please login from the educator portal.",
+        });
+      }
+
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
