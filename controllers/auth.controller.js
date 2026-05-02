@@ -1094,8 +1094,7 @@ export const requestPasswordReset = async (req, res) => {
     const isEducator = role === "educator";
     const Model = isEducator ? Educator : Student;
     const userModelName = isEducator ? "Educator" : "Student";
-    // Treat anything other than explicit production as non-prod (dev/staging/local).
-    // This prevents accidental OTP enforcement when NODE_ENV is unset locally.
+    // Let OTP flow work naturally even in dev mode to test full functionality
     const isDevMode = process.env.NODE_ENV !== "production";
 
     const user = await Model.findOne({ email: normalizedEmail });
@@ -1104,18 +1103,6 @@ export const requestPasswordReset = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Account not found",
-      });
-    }
-
-    // In dev mode, skip OTP generation and email sending
-    if (isDevMode) {
-      console.log(
-        `[DEV MODE] Password reset requested for ${normalizedEmail} (${role}) - OTP email skipped`
-      );
-      return res.status(200).json({
-        success: true,
-        message:
-          "In dev mode: You can reset password without OTP. Use /api/auth/reset-password with email, userType, and newPassword (otp can be any value or omitted).",
       });
     }
 
@@ -1183,9 +1170,8 @@ export const resetPassword = async (req, res) => {
     const { email, userType, otp, newPassword } = req.body;
     const normalizedEmail = email?.toLowerCase?.();
     const role = (userType || "").toLowerCase();
-    // Treat anything other than explicit production as non-prod (dev/staging/local).
-    // This prevents accidental OTP enforcement when NODE_ENV is unset locally.
-    const isDevMode = process.env.NODE_ENV !== "production";
+    // Enforce OTP universally to simulate production
+    const isDevMode = false;
 
     // In dev mode, allow password reset without OTP verification
     if (!isDevMode) {
