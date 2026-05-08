@@ -4,6 +4,7 @@ import Course from "../models/course.js";
 import Educator from "../models/educator.js";
 import notificationService from "../services/notification.service.js";
 import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
+import { generateUniqueSlug } from "../util/slugHelper.js";
 
 // ==================== CRUD Operations ====================
 
@@ -45,19 +46,6 @@ export const createCourse = async (req, res) => {
       classTiming,
       videoTitle,
     } = req.body;
-
-    // Check if course with same title exists for this educator
-    const existingCourse = await Course.findOne({
-      title,
-      educatorID,
-      isActive: true,
-    });
-
-    if (existingCourse) {
-      return res.status(400).json({
-        message: "A course with this title already exists for this educator",
-      });
-    }
 
     // Validate date logic
     const start = new Date(startDate);
@@ -107,8 +95,8 @@ export const createCourse = async (req, res) => {
       ...(videoTitle && { videoTitle }),
     });
 
-    // Generate slug
-    course.slug = course.generateSlug();
+    // Generate unique slug
+    course.slug = await generateUniqueSlug(Course, title);
 
     await course.save();
 
@@ -1469,22 +1457,6 @@ export const bulkCreateCourses = async (req, res) => {
       const raw = coursesInput[index] || {};
 
       try {
-        // Check if course with same title exists for this educator
-        const existingCourse = await Course.findOne({
-          title: raw.title,
-          educatorID: raw.educatorID,
-          isActive: true,
-        });
-
-        if (existingCourse) {
-          results.push({
-            index,
-            success: false,
-            error: "A course with this title already exists for this educator",
-          });
-          continue;
-        }
-
         const course = new Course({
           title: raw.title,
           description: raw.description,
@@ -1512,7 +1484,7 @@ export const bulkCreateCourses = async (req, res) => {
         });
 
         // Generate slug
-        course.slug = course.generateSlug();
+        course.slug = await generateUniqueSlug(Course, raw.title);
 
         await course.save();
 

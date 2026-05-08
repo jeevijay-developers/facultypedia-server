@@ -4,6 +4,7 @@ import Educator from "../models/educator.js";
 import { validationResult } from "express-validator";
 import notificationService from "../services/notification.service.js";
 import { getVimeoStatus, uploadVideoAndResolve } from "../util/vimeo.js";
+import { generateUniqueSlug } from "../util/slugHelper.js";
 
 // Create a new webinar
 export const createWebinar = async (req, res) => {
@@ -36,20 +37,8 @@ export const createWebinar = async (req, res) => {
       introVideo,
     } = req.body;
 
-    // Generate slug from title
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-    // Check if slug already exists
-    const existingWebinar = await Webinar.findOne({ slug });
-    if (existingWebinar) {
-      return res.status(400).json({
-        success: false,
-        message: "A webinar with this title already exists",
-      });
-    }
+    // Generate unique slug
+    const slug = await generateUniqueSlug(Webinar, title);
 
     // Create new webinar
     const newWebinar = new Webinar({
@@ -302,25 +291,7 @@ export const updateWebinar = async (req, res) => {
 
     // If title is being updated, regenerate slug
     if (updateData.title) {
-      const newSlug = updateData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-
-      // Check if new slug conflicts with existing webinar (excluding current one)
-      const existingWebinar = await Webinar.findOne({
-        slug: newSlug,
-        _id: { $ne: id },
-      });
-
-      if (existingWebinar) {
-        return res.status(400).json({
-          success: false,
-          message: "A webinar with this title already exists",
-        });
-      }
-
-      updateData.slug = newSlug;
+      updateData.slug = await generateUniqueSlug(Webinar, updateData.title, id);
     }
 
     const updatedWebinar = await Webinar.findByIdAndUpdate(id, updateData, {
@@ -576,20 +547,7 @@ export const bulkCreateWebinars = async (req, res) => {
       const raw = webinarsInput[index] || {};
 
       try {
-        const slug = (raw.title || "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
-
-        const existingSlug = await Webinar.findOne({ slug });
-        if (existingSlug) {
-          results.push({
-            index,
-            success: false,
-            error: "A webinar with this title already exists",
-          });
-          continue;
-        }
+        const slug = await generateUniqueSlug(Webinar, raw.title || "");
 
         const payload = {
           title: raw.title,

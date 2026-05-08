@@ -2,6 +2,7 @@ import Test from "../models/test.js";
 import mongoose from "mongoose";
 import { validationResult } from "express-validator";
 import Educator from "../models/educator.js";
+import { generateUniqueSlug } from "../util/slugHelper.js";
 
 // Create a new test
 export const createTest = async (req, res) => {
@@ -40,20 +41,8 @@ export const createTest = async (req, res) => {
       allowReview,
     } = req.body;
 
-    // Generate slug from title
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-    // Check if slug already exists
-    const existingTest = await Test.findOne({ slug });
-    if (existingTest) {
-      return res.status(400).json({
-        success: false,
-        message: "A test with this title already exists",
-      });
-    }
+    // Generate unique slug
+    const slug = await generateUniqueSlug(Test, title);
 
     // Validate test series ID if test series specific
     if (isTestSeriesSpecific && !testSeriesID) {
@@ -342,25 +331,7 @@ export const updateTest = async (req, res) => {
 
     // If title is being updated, regenerate slug
     if (updateData.title) {
-      const newSlug = updateData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-
-      // Check if new slug conflicts with existing test (excluding current one)
-      const existingTest = await Test.findOne({
-        slug: newSlug,
-        _id: { $ne: id },
-      });
-
-      if (existingTest) {
-        return res.status(400).json({
-          success: false,
-          message: "A test with this title already exists",
-        });
-      }
-
-      updateData.slug = newSlug;
+      updateData.slug = await generateUniqueSlug(Test, updateData.title, id);
     }
 
     // Validate test series specific logic
@@ -740,20 +711,7 @@ export const bulkCreateTests = async (req, res) => {
       const raw = testsInput[index] || {};
 
       try {
-        const slug = (raw.title || "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
-
-        const existingTest = await Test.findOne({ slug });
-        if (existingTest) {
-          results.push({
-            index,
-            success: false,
-            error: "A test with this title already exists",
-          });
-          continue;
-        }
+        const slug = await generateUniqueSlug(Test, raw.title || "");
 
         const newTest = new Test({
           title: raw.title,

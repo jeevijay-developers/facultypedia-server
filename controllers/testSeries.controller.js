@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import notificationService from "../services/notification.service.js";
 import Educator from "../models/educator.js";
 import { processGenericImageUpload } from "../config/imagekit.js";
+import { generateUniqueSlug } from "../util/slugHelper.js";
 
 // ==================== CRUD Operations ====================
 
@@ -31,20 +32,6 @@ export const createTestSeries = async (req, res) => {
       tests,
       liveTests,
     } = req.body;
-
-    // Check if test series with same title exists for this educator
-    const existingTestSeries = await TestSeries.findOne({
-      title,
-      educatorId,
-      isActive: true,
-    });
-
-    if (existingTestSeries) {
-      return res.status(400).json({
-        message:
-          "A test series with this title already exists for this educator",
-      });
-    }
 
     // If course specific, courseId is required
     if (isCourseSpecific && !courseId) {
@@ -87,7 +74,7 @@ export const createTestSeries = async (req, res) => {
     });
 
     // Generate slug
-    testSeries.slug = testSeries.generateSlug();
+    testSeries.slug = await generateUniqueSlug(TestSeries, title);
 
     await testSeries.save();
 
@@ -1042,15 +1029,7 @@ export const bulkCreateTestSeries = async (req, res) => {
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, "");
 
-        const existing = await TestSeries.findOne({ slug, isActive: true });
-        if (existing) {
-          results.push({
-            index,
-            success: false,
-            error: "A test series with this title already exists",
-          });
-          continue;
-        }
+        const computedSlug = await generateUniqueSlug(TestSeries, raw.title);
 
         const normalizedTests = Array.isArray(raw.tests)
           ? raw.tests
@@ -1083,10 +1062,9 @@ export const bulkCreateTestSeries = async (req, res) => {
           isCourseSpecific: raw.isCourseSpecific || false,
           courseId: raw.isCourseSpecific ? raw.courseId : null,
           tests: normalizedTests,
-          slug,
+          slug: computedSlug,
         });
 
-        testSeries.slug = testSeries.generateSlug();
         await testSeries.save();
 
         if (raw.educatorId) {
