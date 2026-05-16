@@ -44,6 +44,7 @@ export const createShareLink = async (req, res, next) => {
       deepLink,
     });
   } catch (error) {
+    console.error("[share] createShareLink error:", error?.message ?? error);
     return next(error);
   }
 };
