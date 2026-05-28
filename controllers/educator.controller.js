@@ -233,7 +233,7 @@ export const getEducatorBySlug = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Educator retrieved successfully",
-      data: maskAccountInEducator(educator),
+      data: { educator: maskAccountInEducator(educator) },
     });
   } catch (error) {
     console.error("Error fetching educator:", error);

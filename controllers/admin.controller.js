@@ -492,10 +492,9 @@ export const getAllCourses = async (req, res) => {
 
             const educator = course?.educatorID;
             const educatorName =
-              educator?.fullName ||
-              educator?.username ||
-              educator?.email ||
-              "Unknown";
+              (educator && typeof educator === "object" && !Buffer.isBuffer(educator) && (educator.fullName || educator.username || educator.email))
+                ? (educator.fullName || educator.username || educator.email)
+                : "Deleted Educator";
 
             const subjectList = Array.isArray(course?.subject)
               ? course.subject.filter(Boolean)
@@ -746,10 +745,9 @@ export const getAllTestSeries = async (req, res) => {
 
             const educator = series?.educatorId;
             const educatorName =
-              educator?.fullName ||
-              educator?.username ||
-              educator?.email ||
-              "Unknown";
+              (educator && typeof educator === "object" && !Buffer.isBuffer(educator) && (educator.fullName || educator.username || educator.email))
+                ? (educator.fullName || educator.username || educator.email)
+                : "Deleted Educator";
 
             const testsCount = Array.isArray(series?.tests)
               ? series.tests.length
@@ -848,10 +846,9 @@ export const getAllWebinars = async (req, res) => {
 
             const educator = webinar?.educatorID;
             const educatorName =
-              educator?.fullName ||
-              educator?.username ||
-              educator?.email ||
-              "Unknown";
+              (educator && typeof educator === "object" && !Buffer.isBuffer(educator) && (educator.fullName || educator.username || educator.email))
+                ? (educator.fullName || educator.username || educator.email)
+                : "Deleted Educator";
 
             const subjectList = Array.isArray(webinar?.subject)
               ? webinar.subject.filter(Boolean)
