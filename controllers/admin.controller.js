@@ -659,9 +659,16 @@ export const getAllTests = async (req, res) => {
               ? test.attempts.length
               : Number(test?.enrolled ?? 0);
 
+            const educator = test?.educatorID;
+            const educatorName =
+              (educator && typeof educator === "object" && !Buffer.isBuffer(educator) && (educator.fullName || educator.username || educator.email))
+                ? (educator.fullName || educator.username || educator.email)
+                : "Deleted Educator";
+
             return {
               id,
               title: test?.title || "Untitled test",
+              educatorName,
               subject: subjectList,
               duration: durationMinutes,
               marks,
