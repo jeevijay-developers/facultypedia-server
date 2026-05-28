@@ -213,7 +213,7 @@ export const getWebinarById = async (req, res) => {
     const webinar = await Webinar.findById(id)
       .populate(
         "educatorID",
-        "fullName firstName lastName username email profilePicture image"
+        "fullName firstName lastName username email profilePicture image mobileNumber"
       )
       .populate("studentEnrolled", "name email profile");
 
@@ -247,7 +247,7 @@ export const getWebinarBySlug = async (req, res) => {
     const webinar = await Webinar.findOne({ slug, isActive: true })
       .populate(
         "educatorID",
-        "fullName firstName lastName username email profilePicture image"
+        "fullName firstName lastName username email profilePicture image mobileNumber"
       )
       .populate("studentEnrolled", "name email profile");
 
