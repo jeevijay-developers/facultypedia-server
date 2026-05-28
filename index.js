@@ -29,6 +29,7 @@ import queryRoutes from "./routes/query.route.js";
 import resultRoutes from "./routes/result.route.js";
 import progressRoutes from "./routes/progress.route.js";
 import reviewRoutes from "./routes/review.route.js";
+import shareRoutes from "./routes/share.route.js";
 import connectDB from "./util/DBConnect.js";
 import initializeNotificationSocket from "./sockets/notification.socket.js";
 import { initializeChatNamespace } from "./sockets/chat.socket.js";
@@ -153,6 +154,7 @@ APP.use("/api/upload", uploadRoutes);
 APP.use("/api/notifications", notificationRoutes);
 APP.use("/api/progress", progressRoutes);
 APP.use("/api/reviews", reviewRoutes);
+APP.use("/api", shareRoutes);
 
 APP.use((err, _req, res, next) => {
   if (!err) {
