@@ -2,6 +2,7 @@ import { validationResult } from "express-validator";
 import LiveClass from "../models/liveClass.js";
 import Educator from "../models/educator.js";
 import notificationService from "../services/notification.service.js";
+import { generateUniqueSlug } from "../util/slugHelper.js";
 
 // Create a new live class
 export const createLiveClass = async (req, res) => {
@@ -51,8 +52,8 @@ export const createLiveClass = async (req, res) => {
       maxStudents,
     });
 
-    // Generate slug
-    newLiveClass.slug = newLiveClass.generateSlug();
+    // Generate unique slug
+    newLiveClass.slug = await generateUniqueSlug(LiveClass, liveClassTitle);
 
     await newLiveClass.save();
 
@@ -682,7 +683,7 @@ export const bulkCreateLiveClasses = async (req, res) => {
           maxStudents: raw.maxStudents,
         });
 
-        newLiveClass.slug = newLiveClass.generateSlug();
+        newLiveClass.slug = await generateUniqueSlug(LiveClass, raw.liveClassTitle);
         await newLiveClass.save();
 
         try {

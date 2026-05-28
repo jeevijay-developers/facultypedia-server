@@ -154,15 +154,19 @@ webinarSchema.index({ specialization: 1 });
 // Pre-save middleware to update the updatedAt field
 webinarSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
+  if (!this.slug) {
+    this.slug = this.generateSlug();
+  }
   next();
 });
 
 // Method to generate slug from title
 webinarSchema.methods.generateSlug = function () {
-  return this.title
+  const baseSlug = this.title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+  return `${baseSlug}-${Date.now()}`;
 };
 
 // Static method to find webinars by educator

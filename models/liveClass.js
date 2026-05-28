@@ -186,10 +186,11 @@ liveClassSchema.pre("save", function (next) {
 
 // Method to generate slug from title
 liveClassSchema.methods.generateSlug = function () {
-  return this.liveClassTitle
+  const baseSlug = this.liveClassTitle
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+  return `${baseSlug}-${Date.now()}`;
 };
 
 // Static method to find live classes by educator
