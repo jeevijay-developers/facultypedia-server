@@ -136,6 +136,10 @@ export const getAllTestSeries = async (req, res) => {
 
     const query = { isActive: true };
 
+    // Only show content from active (non-disabled) educators
+    const activeEducatorIds = await Educator.find({ status: "active" }).distinct("_id");
+    query.educatorId = { $in: activeEducatorIds };
+
     // Apply filters
     if (specialization) {
       query.specialization = { $in: [specialization] };

@@ -151,7 +151,7 @@ export const getEducatorById = async (req, res) => {
         options: { strictPopulate: false },
       });
 
-    if (!educator) {
+    if (!educator || educator.status !== "active") {
       return res.status(404).json({
         success: false,
         message: "Educator not found",

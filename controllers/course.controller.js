@@ -277,6 +277,10 @@ export const getAllCourses = async (req, res) => {
     const query = { isActive: true, status: { $ne: "deleted" } };
     const now = new Date();
 
+    // Only show content from active (non-disabled) educators
+    const activeEducatorIds = await Educator.find({ status: "active" }).distinct("_id");
+    query.educatorID = { $in: activeEducatorIds };
+
     // By default, show only ongoing or upcoming courses
     if (!status && includePast !== "true") {
       query.$or = [

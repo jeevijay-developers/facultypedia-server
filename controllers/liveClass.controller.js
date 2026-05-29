@@ -144,7 +144,15 @@ export const getAllLiveClasses = async (req, res) => {
       filter.class = {
         $in: Array.isArray(classFilter) ? classFilter : [classFilter],
       };
-    if (educatorID) filter.educatorID = educatorID;
+
+    // Only show content from active (non-disabled) educators
+    const activeEducatorIds = await Educator.find({ status: "active" }).distinct("_id");
+    if (educatorID) {
+      const isActive = activeEducatorIds.some((id) => id.toString() === String(educatorID));
+      filter.educatorID = isActive ? educatorID : { $in: [] };
+    } else {
+      filter.educatorID = { $in: activeEducatorIds };
+    }
     if (isCourseSpecific !== undefined)
       filter.isCourseSpecific = isCourseSpecific === "true";
     if (isActive !== undefined) {

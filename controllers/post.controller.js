@@ -128,8 +128,13 @@ export const getAllPosts = async (req, res) => {
       });
     }
 
+    // Only show posts from active (non-disabled) educators
+    const activeEducatorIds = await Educator.find({ status: "active" }).distinct("_id");
     if (educatorId) {
-      filter.educatorId = educatorId;
+      const isActive = activeEducatorIds.some((id) => id.toString() === String(educatorId));
+      filter.educatorId = isActive ? educatorId : { $in: [] };
+    } else {
+      filter.educatorId = { $in: activeEducatorIds };
     }
 
     if (andConditions.length > 0) {
