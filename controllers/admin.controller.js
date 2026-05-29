@@ -1,4 +1,5 @@
 import { validationResult } from "express-validator";
+import mongoose from "mongoose";
 import Educator from "../models/educator.js";
 import Student from "../models/student.js";
 import Course from "../models/course.js";
@@ -7,6 +8,7 @@ import TestSeries from "../models/testSeries.js";
 import Test from "../models/test.js";
 import Post from "../models/post.js";
 import Notification from "../models/notification.js";
+import LiveClass from "../models/liveClass.js";
 
 // ==================== Educator Management ====================
 
@@ -183,7 +185,9 @@ export const getAllEducators = async (req, res) => {
   }
 };
 
-// Update educator status
+// Update educator status — cascades to all associated content
+// On deactivate: marks only currently-active content with `deactivatedByAdmin: true`
+// On reactivate: restores only content that was flagged (skips content already inactive before the ban)
 export const updateEducatorStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -202,9 +206,56 @@ export const updateEducatorStatus = async (req, res) => {
       });
     }
 
+    // Use Model.collection (raw MongoDB driver) to bypass Mongoose strict mode,
+    // which silently strips non-schema fields like `deactivatedByAdmin` from $set.
+    const oid = new mongoose.Types.ObjectId(id);
+
+    if (status === "inactive") {
+      // Deactivating: only touch currently-active content and stamp it
+      // with deactivatedByAdmin so we can restore exactly those on re-activation.
+      await Promise.all([
+        Course.collection.updateMany(
+          { educatorID: oid, isActive: true },
+          { $set: { status: "inactive", isActive: false, deactivatedByAdmin: true } }
+        ),
+        Webinar.collection.updateMany(
+          { educatorID: oid, isActive: true },
+          { $set: { isActive: false, deactivatedByAdmin: true } }
+        ),
+        TestSeries.collection.updateMany(
+          { educatorId: oid, isActive: true },
+          { $set: { isActive: false, deactivatedByAdmin: true } }
+        ),
+        LiveClass.collection.updateMany(
+          { educatorID: oid, isActive: true },
+          { $set: { isActive: false, deactivatedByAdmin: true } }
+        ),
+      ]);
+    } else {
+      // Reactivating: restore only content stamped by us, then clear the stamp.
+      await Promise.all([
+        Course.collection.updateMany(
+          { educatorID: oid, deactivatedByAdmin: true },
+          { $set: { status: "active", isActive: true }, $unset: { deactivatedByAdmin: "" } }
+        ),
+        Webinar.collection.updateMany(
+          { educatorID: oid, deactivatedByAdmin: true },
+          { $set: { isActive: true }, $unset: { deactivatedByAdmin: "" } }
+        ),
+        TestSeries.collection.updateMany(
+          { educatorId: oid, deactivatedByAdmin: true },
+          { $set: { isActive: true }, $unset: { deactivatedByAdmin: "" } }
+        ),
+        LiveClass.collection.updateMany(
+          { educatorID: oid, deactivatedByAdmin: true },
+          { $set: { isActive: true }, $unset: { deactivatedByAdmin: "" } }
+        ),
+      ]);
+    }
+
     res.status(200).json({
       success: true,
-      message: `Educator status updated to ${status}`,
+      message: `Educator ${status === "inactive" ? "deactivated" : "activated"} — associated content updated`,
       data: educator,
     });
   } catch (error) {
