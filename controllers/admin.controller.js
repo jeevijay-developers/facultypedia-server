@@ -10,6 +10,138 @@ import Post from "../models/post.js";
 import Notification from "../models/notification.js";
 import LiveClass from "../models/liveClass.js";
 
+// ==================== Shared helpers (admin CRUD) ====================
+
+// Returns false (and sends a 400) if express-validator found problems.
+const handleValidation = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
+    });
+    return false;
+  }
+  return true;
+};
+
+// Normalizes a status payload to a boolean isActive. Accepts either
+// { isActive: boolean } or { status: "active" | "inactive" }.
+const resolveIsActive = (body) => {
+  if (typeof body.isActive === "boolean") return body.isActive;
+  if (body.status === "active") return true;
+  if (body.status === "inactive") return false;
+  return undefined;
+};
+
+// Builds an update object from only the whitelisted keys present in the body.
+const pickFields = (body, whitelist) =>
+  whitelist.reduce((acc, key) => {
+    if (body[key] !== undefined) acc[key] = body[key];
+    return acc;
+  }, {});
+
+// Editable field whitelists per entity (excludes refs, slug, enrolment
+// arrays, isActive/status, and timestamps — those are managed elsewhere).
+const EDUCATOR_UPDATE_FIELDS = [
+  "firstName",
+  "lastName",
+  "fullName",
+  "username",
+  "email",
+  "description",
+  "bio",
+  "specialization",
+  "class",
+  "subject",
+  "experience",
+];
+const STUDENT_UPDATE_FIELDS = [
+  "name",
+  "email",
+  "class",
+  "specialization",
+  "mobileNumber",
+];
+const COURSE_UPDATE_FIELDS = [
+  "title",
+  "description",
+  "courseType",
+  "specialization",
+  "class",
+  "subject",
+  "fees",
+  "discount",
+  "image",
+  "courseThumbnail",
+  "startDate",
+  "endDate",
+  "courseDuration",
+  "classesPerWeek",
+  "testFrequency",
+  "classDuration",
+  "classTiming",
+  "validDate",
+  "language",
+  "certificateAvailable",
+  "maxStudents",
+  "courseObjectives",
+  "prerequisites",
+];
+const TEST_UPDATE_FIELDS = [
+  "title",
+  "description",
+  "subjects",
+  "class",
+  "specialization",
+  "duration",
+  "overallMarks",
+  "markingType",
+  "instructions",
+  "passingMarks",
+  "negativeMarking",
+  "negativeMarkingRatio",
+  "shuffleQuestions",
+  "showResult",
+  "allowReview",
+];
+const TEST_SERIES_UPDATE_FIELDS = [
+  "title",
+  "description",
+  "price",
+  "validity",
+  "numberOfTests",
+  "image",
+  "subject",
+  "specialization",
+];
+const WEBINAR_UPDATE_FIELDS = [
+  "title",
+  "description",
+  "webinarType",
+  "timing",
+  "subject",
+  "fees",
+  "duration",
+  "specialization",
+  "seatLimit",
+  "class",
+  "image",
+  "webinarLink",
+];
+const LIVE_CLASS_UPDATE_FIELDS = [
+  "liveClassTitle",
+  "subject",
+  "liveClassSpecification",
+  "classTiming",
+  "classDuration",
+  "class",
+  "description",
+  "maxStudents",
+  "liveClassLink",
+];
+
 // ==================== Educator Management ====================
 
 // Get all educators with filtering and pagination
@@ -213,10 +345,13 @@ export const updateEducatorStatus = async (req, res) => {
     if (status === "inactive") {
       // Deactivating: only touch currently-active content and stamp it
       // with deactivatedByAdmin so we can restore exactly those on re-activation.
+      // Note ref-field casing differs: TestSeries uses educatorId, the rest
+      // use educatorID. Course.status (active/deleted) is left untouched — only
+      // isActive gates visibility here.
       await Promise.all([
         Course.collection.updateMany(
           { educatorID: oid, isActive: true },
-          { $set: { status: "inactive", isActive: false, deactivatedByAdmin: true } }
+          { $set: { isActive: false, deactivatedByAdmin: true } }
         ),
         Webinar.collection.updateMany(
           { educatorID: oid, isActive: true },
@@ -224,6 +359,10 @@ export const updateEducatorStatus = async (req, res) => {
         ),
         TestSeries.collection.updateMany(
           { educatorId: oid, isActive: true },
+          { $set: { isActive: false, deactivatedByAdmin: true } }
+        ),
+        Test.collection.updateMany(
+          { educatorID: oid, isActive: true },
           { $set: { isActive: false, deactivatedByAdmin: true } }
         ),
         LiveClass.collection.updateMany(
@@ -236,7 +375,7 @@ export const updateEducatorStatus = async (req, res) => {
       await Promise.all([
         Course.collection.updateMany(
           { educatorID: oid, deactivatedByAdmin: true },
-          { $set: { status: "active", isActive: true }, $unset: { deactivatedByAdmin: "" } }
+          { $set: { isActive: true }, $unset: { deactivatedByAdmin: "" } }
         ),
         Webinar.collection.updateMany(
           { educatorID: oid, deactivatedByAdmin: true },
@@ -244,6 +383,10 @@ export const updateEducatorStatus = async (req, res) => {
         ),
         TestSeries.collection.updateMany(
           { educatorId: oid, deactivatedByAdmin: true },
+          { $set: { isActive: true }, $unset: { deactivatedByAdmin: "" } }
+        ),
+        Test.collection.updateMany(
+          { educatorID: oid, deactivatedByAdmin: true },
           { $set: { isActive: true }, $unset: { deactivatedByAdmin: "" } }
         ),
         LiveClass.collection.updateMany(
@@ -281,11 +424,13 @@ export const deleteEducator = async (req, res) => {
       });
     }
 
-    // Delete associated content
+    // Delete associated content (note ref-field casing: TestSeries uses
+    // educatorId, the rest use educatorID).
     await Course.deleteMany({ educatorID: id });
     await Webinar.deleteMany({ educatorID: id });
     await TestSeries.deleteMany({ educatorId: id });
-    await Test.deleteMany({ educatorId: id });
+    await Test.deleteMany({ educatorID: id });
+    await LiveClass.deleteMany({ educatorID: id });
     await Post.deleteMany({ educatorId: id });
     await Notification.deleteMany({ sender: id });
 
@@ -1108,16 +1253,500 @@ export const getPlatformAnalytics = async (req, res) => {
   }
 };
 
+// ==================== Generic entity edit (PUT) ====================
+
+// Educator edit — whitelisted fields only; never exposes password/tokens.
+export const updateEducator = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const updates = pickFields(req.body, EDUCATOR_UPDATE_FIELDS);
+    const doc = await Educator.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select("-password -refreshTokens");
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Educator not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Educator updated", data: doc });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error("Error updating educator:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Student edit — whitelisted fields only; never exposes password.
+export const updateStudent = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const updates = pickFields(req.body, STUDENT_UPDATE_FIELDS);
+    const doc = await Student.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select("-password");
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Student updated", data: doc });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error("Error updating student:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateCourse = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const updates = pickFields(req.body, COURSE_UPDATE_FIELDS);
+    const doc = await Course.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Course updated", data: doc });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error("Error updating course:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateWebinar = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const updates = pickFields(req.body, WEBINAR_UPDATE_FIELDS);
+    const doc = await Webinar.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Webinar not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Webinar updated", data: doc });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error("Error updating webinar:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateTest = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const updates = pickFields(req.body, TEST_UPDATE_FIELDS);
+    const doc = await Test.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test not found" });
+    }
+    res.status(200).json({ success: true, message: "Test updated", data: doc });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error("Error updating test:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateTestSeries = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const updates = pickFields(req.body, TEST_SERIES_UPDATE_FIELDS);
+    const doc = await TestSeries.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test series not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Test series updated", data: doc });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error("Error updating test series:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateLiveClass = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const updates = pickFields(req.body, LIVE_CLASS_UPDATE_FIELDS);
+    const doc = await LiveClass.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Live class not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Live class updated", data: doc });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error("Error updating live class:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// ==================== Content status toggles ====================
+// Each sets only isActive. Course.status (active/deleted soft-delete) and
+// LiveClass.isCompleted are intentionally left untouched.
+
+export const updateCourseStatus = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const isActive = resolveIsActive(req.body);
+    if (isActive === undefined) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Provide isActive or status" });
+    }
+    const doc = await Course.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: `Course ${isActive ? "activated" : "deactivated"}`,
+      data: doc,
+    });
+  } catch (error) {
+    console.error("Error updating course status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateWebinarStatus = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const isActive = resolveIsActive(req.body);
+    if (isActive === undefined) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Provide isActive or status" });
+    }
+    const doc = await Webinar.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Webinar not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: `Webinar ${isActive ? "activated" : "deactivated"}`,
+      data: doc,
+    });
+  } catch (error) {
+    console.error("Error updating webinar status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateTestStatus = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const isActive = resolveIsActive(req.body);
+    if (isActive === undefined) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Provide isActive or status" });
+    }
+    const doc = await Test.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: `Test ${isActive ? "activated" : "deactivated"}`,
+      data: doc,
+    });
+  } catch (error) {
+    console.error("Error updating test status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateTestSeriesStatus = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const isActive = resolveIsActive(req.body);
+    if (isActive === undefined) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Provide isActive or status" });
+    }
+    const doc = await TestSeries.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test series not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: `Test series ${isActive ? "activated" : "deactivated"}`,
+      data: doc,
+    });
+  } catch (error) {
+    console.error("Error updating test series status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateLiveClassStatus = async (req, res) => {
+  try {
+    if (!handleValidation(req, res)) return;
+    const isActive = resolveIsActive(req.body);
+    if (isActive === undefined) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Provide isActive or status" });
+    }
+    const doc = await LiveClass.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true, runValidators: true }
+    );
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Live class not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: `Live class ${isActive ? "activated" : "deactivated"}`,
+      data: doc,
+    });
+  } catch (error) {
+    console.error("Error updating live class status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// ==================== Content deletes ====================
+// Mirror deleteCourse/deleteWebinar: guard, detach parent refs, delete.
+
+export const deleteTest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const test = await Test.findById(id);
+    if (!test) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test not found" });
+    }
+    // Detach from any test series that references it.
+    await TestSeries.updateMany({ tests: id }, { $pull: { tests: id } });
+    await Test.findByIdAndDelete(id);
+    res.status(200).json({ success: true, message: "Test deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting test:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteTestSeries = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const series = await TestSeries.findById(id);
+    if (!series) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test series not found" });
+    }
+    // Detach from courses that reference it.
+    await Course.updateMany({ testSeries: id }, { $pull: { testSeries: id } });
+    // Detach child tests (they remain, but lose the series link).
+    await Test.updateMany(
+      { testSeriesID: id },
+      { $set: { isTestSeriesSpecific: false }, $unset: { testSeriesID: "" } }
+    );
+    await TestSeries.findByIdAndDelete(id);
+    res
+      .status(200)
+      .json({ success: true, message: "Test series deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting test series:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteLiveClass = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const liveClass = await LiveClass.findById(id);
+    if (!liveClass) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Live class not found" });
+    }
+    // Detach from courses that reference it.
+    await Course.updateMany({ liveClass: id }, { $pull: { liveClass: id } });
+    await LiveClass.findByIdAndDelete(id);
+    res
+      .status(200)
+      .json({ success: true, message: "Live class deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting live class:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 export default {
   getAllEducators,
+  updateEducator,
   updateEducatorStatus,
   deleteEducator,
   getAllStudents,
+  updateStudent,
   updateStudentStatus,
   deleteStudent,
   getAllCourses,
+  updateCourse,
+  updateCourseStatus,
   deleteCourse,
   getAllWebinars,
+  updateWebinar,
+  updateWebinarStatus,
   deleteWebinar,
+  getAllTests,
+  updateTest,
+  updateTestStatus,
+  deleteTest,
+  getAllTestSeries,
+  updateTestSeries,
+  updateTestSeriesStatus,
+  deleteTestSeries,
+  updateLiveClass,
+  updateLiveClassStatus,
+  deleteLiveClass,
   getPlatformAnalytics,
 };
