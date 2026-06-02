@@ -215,6 +215,16 @@ export const getPostsByEducator = async (req, res) => {
     const { educatorId } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
+    // Return empty if educator is inactive/disabled
+    const educator = await Educator.findById(educatorId).select("status").lean();
+    if (!educator || educator.status !== "active") {
+      return res.status(200).json({
+        success: true,
+        message: "Posts retrieved successfully",
+        data: { posts: [], pagination: { currentPage: 1, totalPages: 0, totalPosts: 0 } },
+      });
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const posts = await Post.find({ educatorId })
@@ -253,17 +263,23 @@ export const getPostsBySubject = async (req, res) => {
 
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
+    // Only show posts from active (non-disabled) educators
+    const activeEducatorIds = await Educator.find({ status: "active" }).distinct("_id");
+
+    const subjectFilter = {
+      $and: [
+        { $or: [{ subjects: subject }, { subject }] },
+        { educatorId: { $in: activeEducatorIds } },
+      ],
+    };
+
     const [posts, totalPosts] = await Promise.all([
-      Post.find({
-        $or: [{ subjects: subject }, { subject }],
-      })
+      Post.find(subjectFilter)
         .populate("educatorId", "fullName username slug profilePicture")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit, 10)),
-      Post.countDocuments({
-        $or: [{ subjects: subject }, { subject }],
-      }),
+      Post.countDocuments(subjectFilter),
     ]);
 
     res.status(200).json({
@@ -295,17 +311,23 @@ export const getPostsBySpecialization = async (req, res) => {
 
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
+    // Only show posts from active (non-disabled) educators
+    const activeEducatorIds = await Educator.find({ status: "active" }).distinct("_id");
+
+    const baseFilter = {
+      $and: [
+        { $or: [{ specializations: specialization }, { specialization }] },
+        { educatorId: { $in: activeEducatorIds } },
+      ],
+    };
+
     const [posts, totalPosts] = await Promise.all([
-      Post.find({
-        $or: [{ specializations: specialization }, { specialization }],
-      })
+      Post.find(baseFilter)
         .populate("educatorId", "fullName username slug profilePicture")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit, 10)),
-      Post.countDocuments({
-        $or: [{ specializations: specialization }, { specialization }],
-      }),
+      Post.countDocuments(baseFilter),
     ]);
 
     res.status(200).json({
