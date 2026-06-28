@@ -421,6 +421,8 @@ export const signupEducator = async (req, res) => {
       qualification,
       socials,
       username: preferredUsername,
+      profilePicture,
+      profilePicturePublicId,
     } = req.body;
 
     const normalizedFirstName = normalizeString(firstName);
@@ -554,6 +556,15 @@ export const signupEducator = async (req, res) => {
 
     if (introVideoLink) {
       educatorData.introVideo = normalizeString(introVideoLink);
+    }
+
+    const normalizedProfilePicture = normalizeString(profilePicture);
+    if (normalizedProfilePicture) {
+      educatorData.profilePicture = normalizedProfilePicture;
+      educatorData.image = {
+        url: normalizedProfilePicture,
+        publicId: normalizeString(profilePicturePublicId),
+      };
     }
 
     const educator = new Educator(educatorData);
