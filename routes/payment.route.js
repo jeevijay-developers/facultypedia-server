@@ -10,6 +10,7 @@ import {
   validatePaymentIntentIdParam,
 } from "../util/validation.js";
 import { rateLimit } from "express-rate-limit";
+import { authenticateStudent } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ const webhookLimiter = rateLimit({
   message: "Too many webhook requests",
 });
 
-router.post("/orders", createPaymentOrderValidation, createPaymentOrder);
+router.post("/orders", authenticateStudent, createPaymentOrderValidation, createPaymentOrder);
 router.get("/:id", validatePaymentIntentIdParam, getPaymentStatus);
 router.post("/webhook", webhookLimiter, handleRazorpayWebhook);
 router.post("/verify", verifyPaymentSignature);

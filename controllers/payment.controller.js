@@ -4,7 +4,6 @@ import PaymentIntent from "../models/paymentIntent.js";
 import {
   enrollStudentInProduct,
   getProductDetails,
-  getStudentById,
   isStudentAlreadyEnrolled,
 } from "../services/enrollment.service.js";
 import {
@@ -60,9 +59,9 @@ export const createPaymentOrder = async (req, res) => {
       return;
     }
 
-    const { studentId, productType, productId } = req.body;
-
-    const student = await getStudentById(studentId);
+    const { productType, productId } = req.body;
+    const student = req.student;
+    const studentId = req.auth.studentId;
     const { product, price } = await getProductDetails(productType, productId);
 
     if (isStudentAlreadyEnrolled(productType, product, studentId)) {
@@ -128,7 +127,6 @@ export const createPaymentOrder = async (req, res) => {
     const statusCode =
       error.message &&
       [
-        "Student not found or inactive",
         "Unsupported product type",
         "Unable to find",
         "is inactive",

@@ -1046,7 +1046,6 @@ export const validateProductIdBody = [
 ];
 
 export const createPaymentOrderValidation = [
-  ...validateStudentId,
   ...validateProductIdBody,
   ...validatePaymentProductType,
 ];
